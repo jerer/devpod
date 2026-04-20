@@ -142,22 +142,26 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Apply Version
-        if: matrix.settings.cli_only == false        run: yarn version --new-version ${{ needs.create-release.outputs.package_version }} --no-git-tag-version
+        if: matrix.settings.cli_only == false
+        run: yarn version --new-version ${{ needs.create-release.outputs.package_version }} --no-git-tag-version
         working-directory: "./desktop"
 
       - name: Setup System Dependencies
-        if: matrix.settings.host == 'ubuntu-22.04' && matrix.settings.cli_only == false        run: |
+        if: matrix.settings.host == 'ubuntu-22.04' && matrix.settings.cli_only == false
+        run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libayatana-appindicator3-dev librsvg2-dev
 
       - name: Rust setup
         uses: dtolnay/rust-toolchain@stable
-        if: matrix.settings.cli_only == false        with:
+        if: matrix.settings.cli_only == false
+        with:
           targets: ${{ matrix.settings.target }}
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
-        if: matrix.settings.cli_only == false        with:
+        if: matrix.settings.cli_only == false
+        with:
           workspaces: "./desktop/src-tauri -> target"
 
       - name: Go setup
@@ -187,17 +191,20 @@ jobs:
 
       - name: Sync node version and setup cache
         uses: actions/setup-node@v3
-        if: matrix.settings.cli_only == false        with:
+        if: matrix.settings.cli_only == false
+        with:
           node-version: "lts/*"
           cache: "yarn"
           cache-dependency-path: "./desktop/yarn.lock"
 
       - name: Install frontend dependencies
-        if: matrix.settings.cli_only == false        run: yarn install
+        if: matrix.settings.cli_only == false
+        run: yarn install
         working-directory: "./desktop"
 
       - name: Build Desktop App
-        if: matrix.settings.host == 'ubuntu-22.04' && matrix.settings.cli_only == false        uses: tauri-apps/tauri-action@v0.4.0
+        if: matrix.settings.host == 'ubuntu-22.04' && matrix.settings.cli_only == false
+        uses: tauri-apps/tauri-action@v0.4.0
         with:
           releaseId: ${{ needs.create-release.outputs.release_id }}
           projectPath: "./desktop"
@@ -213,7 +220,8 @@ jobs:
           APPIMAGETOOL_SIGN_PASSPHRASE: ${{ secrets.APP_IMAGE_SIGN_PASSPHRASE }}
 
       - name: Build Desktop App
-        if: matrix.settings.host == 'macos-latest' && matrix.settings.cli_only == false        uses: tauri-apps/tauri-action@v0.4.0
+        if: matrix.settings.host == 'macos-latest' && matrix.settings.cli_only == false
+        uses: tauri-apps/tauri-action@v0.4.0
         with:
           releaseId: ${{ needs.create-release.outputs.release_id }}
           projectPath: "./desktop"
@@ -233,7 +241,8 @@ jobs:
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
 
       - name: Build linux tar.gz
-        if: matrix.settings.host == 'ubuntu-22.04' && matrix.settings.cli_only == false        id: build-desktop-targz
+        if: matrix.settings.host == 'ubuntu-22.04' && matrix.settings.cli_only == false
+        id: build-desktop-targz
         run: |
           cd ./desktop/src-tauri/target/${{ matrix.settings.target }}/release/bundle/appimage/dev-pod.AppDir || exit 1
           tar --exclude=usr/bin/xdg-open --exclude=usr/lib --exclude=usr/share/doc --exclude=usr/share/glib-2.0 -zcvf dev-pod-desktop.tar.gz usr
@@ -241,7 +250,8 @@ jobs:
           mv dev-pod-desktop.tar.gz ../../dev-pod-${{needs.create-release.outputs.package_version}}.tar.gz
 
       - name: Build Desktop App
-        if: matrix.settings.host == 'windows-latest' && matrix.settings.cli_only == false        id: build-desktop-app
+        if: matrix.settings.host == 'windows-latest' && matrix.settings.cli_only == false
+        id: build-desktop-app
         uses: tauri-apps/tauri-action@v0.4.5
         with:
           projectPath: "./desktop"
@@ -252,7 +262,8 @@ jobs:
           TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
 
       - name: Sign Windows App
-        if: matrix.settings.host == 'windows-latest'        shell: powershell
+        if: matrix.settings.host == 'windows-latest'
+        shell: powershell
         env:
           CODESIGNTOOL_USERNAME: ${{ secrets.CODESIGNTOOL_USERNAME }}
           CODESIGNTOOL_PASSWORD: ${{ secrets.CODESIGNTOOL_PASSWORD }}
@@ -285,7 +296,8 @@ jobs:
           cmd.exe /c ".\CodeSignTool.bat" sign -username="$username" -password="$password" -totp_secret="$totp_secret" -credential_id="$credential_id" -input_file_path="$input_file_path" -override
 
       - name: Upload Release Asset
-        if: matrix.settings.host == 'windows-latest'        uses: actions/github-script@v6
+        if: matrix.settings.host == 'windows-latest'
+        uses: actions/github-script@v6
         with:
           script: |
             const fs = require("fs")
@@ -349,7 +361,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Tar.gz Asset
-        if: matrix.settings.host == 'ubuntu-22.04' && matrix.settings.cli_only == false        uses: actions/github-script@v6
+        if: matrix.settings.host == 'ubuntu-22.04' && matrix.settings.cli_only == false
+        uses: actions/github-script@v6
         with:
           script: |
             const fs = require("fs")
