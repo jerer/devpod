@@ -5,12 +5,8 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
-	"runtime"
 	"time"
 
-	devpodhttp "github.com/loft-sh/devpod/pkg/http"
 	"github.com/loft-sh/devpod/pkg/inject"
 	"github.com/loft-sh/devpod/pkg/shell"
 	"github.com/loft-sh/devpod/pkg/version"
@@ -78,13 +74,13 @@ func InjectAgentAndExecute(
 		downloadURL = DefaultAgentDownloadURL()
 	}
 
-	versionCheck := fmt.Sprintf(`[ "$(%s version 2>/dev/null || echo 'false')" != "%s" ]`, remoteAgentPath, version.GetVersion())
+	// For dev builds there's no matching release to download, so only install if binary is absent.
+	// For release builds, check the version so outdated binaries are replaced.
+	var versionCheck string
 	if version.GetVersion() == version.DevVersion {
-		preferDownload = false
-
-		if runtime.GOOS == "windows" {
-			preferDownload = true
-		}
+		versionCheck = fmt.Sprintf(`[ ! -f %s ]`, remoteAgentPath)
+	} else {
+		versionCheck = fmt.Sprintf(`[ "$(%s version 2>/dev/null || echo 'false')" != "%s" ]`, remoteAgentPath, version.GetVersion())
 	}
 
 	// install devpod into the target
@@ -104,16 +100,14 @@ func InjectAgentAndExecute(
 			AgentRemotePath:     remoteAgentPath,
 			DownloadURLs:        inject.NewDownloadURLs(downloadURL),
 			ExistsCheck:         versionCheck,
-			PreferAgentDownload: preferDownload,
+			PreferAgentDownload: true,
 			ShouldChmodPath:     true,
 		}
 
 		wasExecuted, err := inject.InjectAndExecute(
 			ctx,
 			exec,
-			func(arm bool) (io.ReadCloser, error) {
-				return injectBinary(arm, downloadURL, log)
-			},
+			nil,
 			scriptParams,
 			stdin,
 			stdout,
@@ -142,85 +136,4 @@ func InjectAgentAndExecute(
 	}
 
 	return nil
-}
-
-func injectBinary(arm bool, tryDownloadURL string, log log.Logger) (io.ReadCloser, error) {
-	// this means we need to
-	targetArch := "amd64"
-	if arm {
-		targetArch = "arm64"
-	}
-
-	// make sure a linux arm64 binary exists locally
-	var err error
-	var binaryPath string
-	if runtime.GOOS == "linux" && runtime.GOARCH == targetArch {
-		binaryPath, err = os.Executable()
-		if err != nil {
-			return nil, errors.Wrap(err, "get executable")
-		}
-
-		// check if we still exist
-		_, err = os.Stat(binaryPath)
-		if err != nil {
-			binaryPath = ""
-		}
-	}
-
-	// download devpod locally
-	if binaryPath == "" {
-		binaryPath, err = downloadAgentLocally(tryDownloadURL, targetArch, log)
-		if err != nil {
-			return nil, errors.Wrap(err, "download agent locally")
-		}
-	}
-
-	// read file
-	file, err := os.Open(binaryPath)
-	if err != nil {
-		return nil, errors.Wrap(err, "open agent binary")
-	}
-
-	return file, nil
-}
-
-func downloadAgentLocally(tryDownloadURL, targetArch string, log log.Logger) (string, error) {
-	agentPath := filepath.Join(os.TempDir(), "devpod-cache", "devpod-linux-"+targetArch)
-	err := os.MkdirAll(filepath.Dir(agentPath), 0755)
-	if err != nil {
-		return "", errors.Wrap(err, "create agent path")
-	}
-
-	stat, statErr := os.Stat(agentPath)
-	if version.GetVersion() == version.DevVersion && statErr == nil {
-		return agentPath, nil
-	}
-
-	fullDownloadURL := tryDownloadURL + "/devpod-linux-" + targetArch
-	log.Debugf("Attempting to download DevPod agent from: %s", fullDownloadURL)
-
-	resp, err := devpodhttp.GetHTTPClient().Get(fullDownloadURL)
-	if err != nil {
-		return "", errors.Wrap(err, "download devpod")
-	}
-	defer resp.Body.Close()
-
-	if statErr == nil && stat.Size() == resp.ContentLength {
-		return agentPath, nil
-	}
-
-	log.Infof("Download DevPod Agent...")
-	file, err := os.Create(agentPath)
-	if err != nil {
-		return "", errors.Wrap(err, "create agent binary")
-	}
-	defer file.Close()
-
-	_, err = io.Copy(file, resp.Body)
-	if err != nil {
-		_ = os.Remove(agentPath)
-		return "", errors.Wrapf(err, "failed to download devpod from URL: %s", fullDownloadURL)
-	}
-
-	return agentPath, nil
 }

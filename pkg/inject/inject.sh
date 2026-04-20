@@ -133,7 +133,7 @@ if {{ .ExistsCheck }}; then
 
   $sh_c "rm -f $INSTALL_PATH 2>/dev/null || true"
   if [ "$PREFER_DOWNLOAD" = "true" ]; then
-    download || inject
+    download
   else
     inject || download
   fi

@@ -173,6 +173,9 @@ func inject(
 		log.Debugf("Inject binary")
 		defer log.Debugf("Done injecting binary")
 
+		if localFile == nil {
+			return false, fmt.Errorf("binary injection requested but no local file provided")
+		}
 		fileReader, err := getFileReader(localFile, lineStr)
 		if err != nil {
 			return false, err
