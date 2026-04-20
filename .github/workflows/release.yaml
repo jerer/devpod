@@ -144,11 +144,16 @@ jobs:
         run: yarn install
         working-directory: "./desktop"
 
+      - name: Disable updater (no signing keys required)
+        shell: pwsh
+        run: |
+          '{"tauri":{"updater":{"active":false}}}' | Out-File -FilePath "desktop/src-tauri/tauri-ci.conf.json" -Encoding utf8
+
       - name: Build Desktop App
         uses: tauri-apps/tauri-action@v0.4.5
         with:
           projectPath: "./desktop"
-          args: "--target x86_64-pc-windows-msvc"
+          args: "--target x86_64-pc-windows-msvc --config src-tauri/tauri-ci.conf.json"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
