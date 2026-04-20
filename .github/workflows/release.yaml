@@ -1,11 +1,12 @@
 name: Publish release
 on:
-  release:
-    types: [prereleased]
+  push:
+    tags:
+      - '*'
 
 jobs:
   create-release:
-    if: startsWith(github.ref, 'refs/tags/v') == true
+    if: startsWith(github.ref, 'refs/tags/') == true
     permissions:
       contents: write
     runs-on: ubuntu-22.04
@@ -31,31 +32,35 @@ jobs:
           script: |
             const semver = require("semver")
             const refName = `${process.env.GITHUB_REF_NAME}`
-            let version = refName.split("v")[1]
+            // Strip leading "v" if present, otherwise use the tag as-is
+            let version = refName.startsWith("v") ? refName.slice(1) : refName
 
             core.info(`Original Version: ${version}`)
             core.setOutput("original_package_version", version)
 
+            // Apply semver prerelease normalization only for semver-formatted tags
             const parsed = semver.parse(version);
-            const supportedPreleases = [
-              { tag: "alpha", number: 1 },
-              { tag: "beta", number: 2 },
-              { tag: "rc", number: 3 },
-            ];
-            const maybePrelease = semver.prerelease(version);
-            const maybeSupported = supportedPreleases.find(
-              (p) => p.tag === maybePrelease?.[0]
-            );
+            if (parsed) {
+              const supportedPreleases = [
+                { tag: "alpha", number: 1 },
+                { tag: "beta", number: 2 },
+                { tag: "rc", number: 3 },
+              ];
+              const maybePrelease = semver.prerelease(version);
+              const maybeSupported = supportedPreleases.find(
+                (p) => p.tag === maybePrelease?.[0]
+              );
 
-            // If we have a prelease and it is in the supported range, then we can use it
-            if (maybePrelease && maybeSupported) {
-              version = `${parsed.major}.${parsed.minor}.${parsed.patch}-${
-                maybeSupported.number
-              }${maybePrelease[1] ?? 0}`;
-            }
+              // If we have a prelease and it is in the supported range, then we can use it
+              if (maybePrelease && maybeSupported) {
+                version = `${parsed.major}.${parsed.minor}.${parsed.patch}-${
+                  maybeSupported.number
+                }${maybePrelease[1] ?? 0}`;
+              }
 
-            if(maybePrelease && !maybeSupported) {
-              core.setFailed(`Unsupported prerelease: ${version}`)
+              if(maybePrelease && !maybeSupported) {
+                core.setFailed(`Unsupported prerelease: ${version}`)
+              }
             }
 
             core.info(`Version: ${version}`)
@@ -74,14 +79,14 @@ jobs:
               repo: context.repo.repo,
               per_page: 10,
             })
-            const release = res.data.find((r) => r.tag_name === refName && r.prerelease)
-            if(!release) { core.setFailed("Unable to find prerelease for this workflow") }
+            const release = res.data.find((r) => r.tag_name === refName)
+            if(!release) { core.setFailed("Unable to find release for this workflow") }
 
             core.setOutput("id", release.id)
 
   build-app:
     needs: create-release
-    if: startsWith(github.ref, 'refs/tags/v') == true
+    if: startsWith(github.ref, 'refs/tags/') == true
     permissions:
       contents: write
     strategy:
@@ -381,7 +386,7 @@ jobs:
 
   publish-updates:
     needs: [build-app, create-release]
-    if: startsWith(github.ref, 'refs/tags/v') == true
+    if: startsWith(github.ref, 'refs/tags/') == true
     permissions:
       contents: write
     runs-on: ubuntu-22.04
