@@ -153,7 +153,7 @@ jobs:
         uses: tauri-apps/tauri-action@v0.4.5
         with:
           projectPath: "./desktop"
-          args: "--target x86_64-pc-windows-msvc --config src-tauri/tauri-ci.conf.json"
+          args: "--no-sign --target x86_64-pc-windows-msvc --config src-tauri/tauri-ci.conf.json"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
