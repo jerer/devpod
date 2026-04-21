@@ -1,0 +1,16 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "type": "shell",
+            "label": "build",
+            "command": "go build -gcflags=\"all=-N -l\" -o devpod-cli",
+            "group": "build",
+            "options": {
+                "env": {
+                    "CGO_ENABLED" : "0"
+                }
+             }
+        }
+    ]
+}
