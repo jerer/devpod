@@ -97,11 +97,7 @@
         "providerShortName": null,
         "signingIdentity": null
       },
-      "windows": {
-        "certificateThumbprint": null,
-        "digestAlgorithm": "sha256",
-        "timestampUrl": ""
-      },
+      "windows": null,
       "deb": {
         "depends": []
       }
