@@ -99,6 +99,7 @@
       },
       "windows": {
         "certificateThumbprint": null,
+        "signCommand": null,
         "digestAlgorithm": "sha256",
         "timestampUrl": ""
       },
