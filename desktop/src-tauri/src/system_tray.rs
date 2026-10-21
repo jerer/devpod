@@ -1,5 +1,5 @@
 use crate::{workspaces::WorkspacesState, AppHandle, AppState, UiMessage};
-use log::{error, warn};
+use log::{error, info, warn};
 use tauri::{
     menu::{IsMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu},
     tray::{TrayIcon, TrayIconBuilder},
@@ -80,6 +80,7 @@ impl SystemTray {
     ) -> impl Fn(&AppHandle, tauri::menu::MenuEvent) + Send + Sync + 'static {
         |app, event| match event.id().as_ref() {
             Self::QUIT_ID => {
+                info!("Quit requested from system tray");
                 app.exit(0);
             }
             Self::SHOW_DASHBOARD_ID => {

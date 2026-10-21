@@ -1,6 +1,6 @@
 import { client } from "@/client"
 import { useProInstances, useSettings, useWorkspaces } from "@/contexts"
-import { Briefcase, CheckCircle, DevPodProBadge, ExclamationTriangle, Plus } from "@/icons"
+import { Briefcase, CheckCircle, ExclamationTriangle, Plus } from "@/icons"
 import { exists } from "@/lib"
 import { TProID, TProInstance } from "@/types"
 import { useLoginProModal, useReLoginProModal } from "@/views/ProInstances/useLoginProModal"
@@ -39,13 +39,14 @@ export function Pro() {
   const [isDeleting, setIsDeleting] = useState(false)
 
   const backgroundColor = useColorModeValue("white", "gray.900")
-  const handleAnnouncementClicked = () => {
-    client.open("https://devpod.sh/pro")
-  }
   const { experimental_devPodPro } = useSettings()
   const isProUnauthenticated = proInstances?.some(({ authenticated }) => !authenticated)
 
-  return experimental_devPodPro ? (
+  if (!experimental_devPodPro) {
+    return null
+  }
+
+  return (
     <>
       <Popover isLazy isOpen={isDeleting ? true : undefined}>
         <PopoverTrigger>
@@ -133,13 +134,6 @@ export function Pro() {
       {loginProModal}
       {reLoginProModal}
     </>
-  ) : (
-    <Button
-      variant="outline"
-      leftIcon={<DevPodProBadge width="9" height="8" />}
-      onClick={handleAnnouncementClicked}>
-      Try DevPod Pro
-    </Button>
   )
 }
 

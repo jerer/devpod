@@ -21,13 +21,16 @@
     {
       "identifier": "shell:allow-execute",
       "allow": [
-        {"name": "run-path-devpod-cli", "cmd": "devpod", "args": ["version"]},
-        {"name": "run-path-devpod-wrapper", "cmd": "/app/bin/devpod-cli", "args": true}
+        {"name": "devpod", "cmd": "devpod", "args": ["version"]},
+        {"name": "/app/bin/devpod-cli", "cmd": "/app/bin/devpod-cli", "args": true},
+        {"name": "devpod-cli", "sidecar": true, "args": true},
+        {"name": "bin/devpod-cli", "sidecar": true, "args": true}
       ]
     },
     {
       "identifier": "shell:allow-spawn",
       "allow": [
+        {"name": "/app/bin/devpod-cli", "cmd": "/app/bin/devpod-cli", "args": true},
         {"name": "devpod-cli", "sidecar": true, "args": true},
         {"name": "bin/devpod-cli", "sidecar": true, "args": true}
       ]
@@ -35,6 +38,7 @@
     {
       "identifier": "shell:allow-kill",
       "allow": [
+        {"name": "/app/bin/devpod-cli", "cmd": "/app/bin/devpod-cli", "args": true},
         {"name": "devpod-cli", "sidecar": true, "args": true},
         {"name": "bin/devpod-cli", "sidecar": true, "args": true}
       ]
@@ -51,7 +55,8 @@
       "allow": [
         {"url": "https://**"},
         {"url": "http://**"},
-        {"url": "mailto:**"}
+        {"url": "mailto:**"},
+        {"url": "tel:**"}
       ]
     },
     {

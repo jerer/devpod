@@ -194,8 +194,15 @@ fn main() -> anyhow::Result<()> {
         let exit_requested_tx = tx.clone();
 
         match event {
-            // Prevents app from exiting when last window is closed, leaving the system tray active
-            tauri::RunEvent::ExitRequested { api, .. } => {
+            // Prevents app from exiting when last window is closed, leaving the system tray active.
+            // An explicit exit (tray "Quit" / `app.exit`) arrives with a code and must not be prevented.
+            tauri::RunEvent::ExitRequested { code, api, .. } => {
+                if let Some(code) = code {
+                    info!("Explicit exit requested with code {}; allowing exit", code);
+                    return;
+                }
+
+                info!("Exit requested by user interaction; preventing exit to keep tray active");
                 tauri::async_runtime::block_on(async move {
                     if let Err(err) = exit_requested_tx.send(UiMessage::ExitRequested).await {
                         error!("Failed to broadcast UI ready message: {:?}", err);
