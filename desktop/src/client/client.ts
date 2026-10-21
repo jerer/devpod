@@ -1,20 +1,16 @@
 import { UseToastOptions } from "@chakra-ui/react"
-import {
-  app,
-  clipboard,
-  dialog,
-  event,
-  fs,
-  invoke,
-  os,
-  path,
-  process,
-  shell,
-  window as tauriWindow,
-  updater,
-} from "@tauri-apps/api"
-import { Command } from "@tauri-apps/api/shell"
-import { Theme as TauriTheme } from "@tauri-apps/api/window"
+import { getVersion } from "@tauri-apps/api/app"
+import { invoke } from "@tauri-apps/api/core"
+import { listen } from "@tauri-apps/api/event"
+import { appDataDir } from "@tauri-apps/api/path"
+import { getCurrentWindow, type Theme as TauriTheme } from "@tauri-apps/api/window"
+import { writeText } from "@tauri-apps/plugin-clipboard-manager"
+import { open } from "@tauri-apps/plugin-dialog"
+import { copyFile } from "@tauri-apps/plugin-fs"
+import { arch, platform, type Arch, type Platform } from "@tauri-apps/plugin-os"
+import { openPath, openUrl } from "@tauri-apps/plugin-opener"
+import { exit, relaunch } from "@tauri-apps/plugin-process"
+import { Command as ShellCommand } from "@tauri-apps/plugin-shell"
 import { TSettings } from "../contexts"
 import { Release } from "../gen"
 import { Result, Return, isError, noop } from "../lib"
@@ -72,8 +68,8 @@ type TClientSettings = Pick<
   | "httpsProxyUrl"
   | "noProxy"
 >
-export type TPlatform = Awaited<ReturnType<typeof os.platform>>
-export type TArch = Awaited<ReturnType<typeof os.arch>>
+export type TPlatform = Platform
+export type TArch = Arch
 
 class Client {
   public readonly workspaces = new WorkspacesClient()
@@ -126,7 +122,7 @@ class Client {
   ): Promise<TUnsubscribeFn> {
     // `TClient` is strictly typed so we're fine casting the response as `any`.
     try {
-      const unsubscribe = await event.listen<any>(channel, (event) => {
+      const unsubscribe = await listen<any>(channel, (event) => {
         listener(event.payload)
       })
 
@@ -136,16 +132,16 @@ class Client {
     }
   }
 
-  public fetchPlatform(): Promise<TPlatform> {
-    return os.platform()
+  public async fetchPlatform(): Promise<TPlatform> {
+    return platform()
   }
 
-  public fetchArch(): Promise<TArch> {
-    return os.arch()
+  public async fetchArch(): Promise<TArch> {
+    return arch()
   }
 
   public fetchVersion(): Promise<string> {
-    return app.getVersion()
+    return getVersion()
   }
 
   public async fetchCommunityContributions(): Promise<Result<TCommunityContributions>> {
@@ -192,27 +188,21 @@ class Client {
     }
   }
 
-  public async openDir(dir: Extract<keyof typeof fs.BaseDirectory, "AppData">): Promise<void> {
+  public async openDir(_dir: "AppData" = "AppData"): Promise<void> {
     try {
-      let p: string
-      switch (dir) {
-        case "AppData": {
-          p = await path.appDataDir()
-          break
-        }
-      }
-      shell.open(p)
+      const p = await appDataDir()
+      await openPath(p)
     } catch (e) {
       // noop for now
     }
   }
 
   public async selectFromDir(): Promise<string | string[] | null> {
-    return dialog.open({ directory: true, multiple: false })
+    return open({ directory: true, multiple: false })
   }
 
   public async selectFromFileYaml(): Promise<string | string[] | null> {
-    return dialog.open({
+    return open({
       filters: [{ name: "yaml", extensions: ["yml", "yaml"] }],
       directory: false,
       multiple: false,
@@ -220,11 +210,11 @@ class Client {
   }
 
   public async selectFromFile(): Promise<string | string[] | null> {
-    return dialog.open({ directory: false, multiple: false })
+    return open({ directory: false, multiple: false })
   }
 
   public async copyFile(src: string, dest: string): Promise<void> {
-    return fs.copyFile(src, dest)
+    return copyFile(src, dest)
   }
 
   public async installCLI(force: boolean = false): Promise<Result<void>> {
@@ -245,8 +235,8 @@ class Client {
     }
   }
 
-  public async getEnv(name: string): Promise<boolean> {
-    return invoke<boolean>("get_env", { name })
+  public async getEnv(name: string): Promise<string> {
+    return invoke<string>("get_env", { name })
   }
 
   public async isCLIInstalled(): Promise<Result<boolean>> {
@@ -262,7 +252,7 @@ class Client {
         return Return.Value(exists)
       }
 
-      const result = await new Command("run-path-devpod-cli", ["version"]).execute()
+      const result = await ShellCommand.create("devpod", ["version"]).execute()
       if (result.code !== 0) {
         return Return.Value(false)
       }
@@ -274,12 +264,16 @@ class Client {
   }
 
   public open(link: string): void {
-    shell.open(link)
+    if (/^(https?|mailto|tel):/i.test(link)) {
+      void openUrl(link)
+    } else {
+      void openPath(link)
+    }
   }
 
   public async quit(): Promise<Result<void>> {
     try {
-      await process.exit(0)
+      await exit(0)
 
       return Return.Ok()
     } catch {
@@ -289,7 +283,7 @@ class Client {
 
   public async writeToClipboard(data: string): Promise<Result<void>> {
     try {
-      await clipboard.writeText(data)
+      await writeText(data)
 
       return Return.Ok()
     } catch (e) {
@@ -319,30 +313,7 @@ class Client {
 
   public async installUpdate(): Promise<Result<void>> {
     try {
-      let unsubscribe: TUnsubscribeFn | undefined
-      // Synchronize promise state with update operation
-      await new Promise((res, rej) => {
-        updater
-          .onUpdaterEvent((event) => {
-            if (event.status === "ERROR") {
-              unsubscribe?.()
-              rej(event.error)
-
-              return
-            }
-
-            if (event.status === "DONE") {
-              unsubscribe?.()
-              res(undefined)
-
-              return
-            }
-          })
-          .then(async (u) => {
-            unsubscribe = u
-            await updater.installUpdate()
-          })
-      })
+      await invoke("install_update")
 
       return Return.Ok()
     } catch (e) {
@@ -351,14 +322,14 @@ class Client {
   }
 
   public async restart(): Promise<void> {
-    await process.relaunch()
+    await relaunch()
   }
   public async closeCurrentWindow(): Promise<void> {
-    await tauriWindow.getCurrent().close()
+    await getCurrentWindow().close()
   }
 
   public async getSystemTheme(): Promise<TauriTheme | null> {
-    return tauriWindow.appWindow.theme()
+    return getCurrentWindow().theme()
   }
 }
 

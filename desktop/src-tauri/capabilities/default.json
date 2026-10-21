@@ -1,0 +1,66 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Capabilities for the DevPod desktop application",
+  "windows": ["main", "update_ready"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-set-focus",
+    "core:window:allow-close",
+    "core:window:allow-show",
+    "dialog:default",
+    {
+      "identifier": "fs:allow-copy-file",
+      "allow": [
+        {"path": "$HOME/**"},
+        {"path": "$APPDATA/**"},
+        {"path": "$APPDATA/actions/**"}
+      ]
+    },
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {"name": "run-path-devpod-cli", "cmd": "devpod", "args": ["version"]},
+        {"name": "run-path-devpod-wrapper", "cmd": "/app/bin/devpod-cli", "args": true}
+      ]
+    },
+    {
+      "identifier": "shell:allow-spawn",
+      "allow": [
+        {"name": "devpod-cli", "sidecar": true, "args": true},
+        {"name": "bin/devpod-cli", "sidecar": true, "args": true}
+      ]
+    },
+    {
+      "identifier": "shell:allow-kill",
+      "allow": [
+        {"name": "devpod-cli", "sidecar": true, "args": true},
+        {"name": "bin/devpod-cli", "sidecar": true, "args": true}
+      ]
+    },
+    "clipboard-manager:allow-write-text",
+    "notification:default",
+    "process:allow-exit",
+    "process:allow-restart",
+    "os:default",
+    "deep-link:default",
+    "updater:default",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        {"url": "https://**"},
+        {"url": "http://**"},
+        {"url": "mailto:**"}
+      ]
+    },
+    {
+      "identifier": "opener:allow-open-path",
+      "allow": [
+        {"path": "$HOME/**"},
+        {"path": "$APPDATA/**"}
+      ]
+    },
+    "store:default"
+  ]
+}

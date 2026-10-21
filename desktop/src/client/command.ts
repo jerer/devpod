@@ -1,11 +1,16 @@
-import { Child, ChildProcess, EventEmitter, Command as ShellCommand } from "@tauri-apps/api/shell"
+import {
+  Command as ShellCommand,
+  type Child,
+  type ChildProcess,
+  type EventEmitter,
+} from "@tauri-apps/plugin-shell"
 import { debug, isError, Result, ResultError, Return } from "../lib"
 import { DEVPOD_BINARY, DEVPOD_FLAG_OPTION, DEVPOD_UI_ENV_VAR } from "./constants"
 import { TStreamEvent } from "./types"
 
 export type TStreamEventListenerFn = (event: TStreamEvent) => void
 export type TEventListener<TEventName extends string> = Parameters<
-  EventEmitter<TEventName>["addListener"]
+  EventEmitter<Record<TEventName, string>>["addListener"]
 >[1]
 
 export type TCommand<T> = {
@@ -14,8 +19,8 @@ export type TCommand<T> = {
   cancel(): Promise<ResultError>
 }
 
-export class Command implements TCommand<ChildProcess> {
-  private sidecarCommand: ShellCommand
+export class Command implements TCommand<ChildProcess<string>> {
+  private sidecarCommand: ShellCommand<string>
   private childProcess?: Child
   private args: string[]
 
@@ -55,7 +60,7 @@ export class Command implements TCommand<ChildProcess> {
     extraEnvVars[DEVPOD_UI_ENV_VAR] = "true"
 
     if (import.meta.env.TAURI_IS_FLATPAK === "true") {
-      this.sidecarCommand = new ShellCommand("run-path-devpod-wrapper", args, {
+      this.sidecarCommand = ShellCommand.create("/app/bin/devpod-cli", args, {
         env: { ...extraEnvVars, ["FLATPAK_ID"]: "sh.loft.devpod" },
       })
     } else {
@@ -64,7 +69,7 @@ export class Command implements TCommand<ChildProcess> {
     this.args = args
   }
 
-  public async run(): Promise<Result<ChildProcess>> {
+  public async run(): Promise<Result<ChildProcess<string>>> {
     try {
       const rawResult = await this.sidecarCommand.execute()
       debug("commands", `Result for command with args ${this.args}:`, rawResult)
@@ -114,7 +119,7 @@ export class Command implements TCommand<ChildProcess> {
           this.childProcess = undefined
         }
 
-        this.sidecarCommand.on("close", (arg?: { code: number }) => {
+        this.sidecarCommand.on("close", (arg) => {
           cleanup()
           if (arg?.code !== 0) {
             rej(new Error("exit code: " + arg?.code))
@@ -159,7 +164,7 @@ export class Command implements TCommand<ChildProcess> {
   }
 }
 
-export function isOk(result: ChildProcess): boolean {
+export function isOk(result: ChildProcess<string>): boolean {
   return result.code === 0
 }
 

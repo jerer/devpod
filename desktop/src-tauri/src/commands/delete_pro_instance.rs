@@ -1,3 +1,5 @@
+use crate::AppHandle;
+
 use super::{
     config::{CommandConfig, DevpodCommandConfig, DevpodCommandError},
     constants::{
@@ -14,7 +16,7 @@ impl DeleteProInstanceCommand {
     }
 }
 impl DevpodCommandConfig<()> for DeleteProInstanceCommand {
-    fn config(&self) -> CommandConfig {
+    fn config(&self) -> CommandConfig<'_> {
         CommandConfig {
             binary_name: DEVPOD_BINARY_NAME,
             args: vec![
@@ -26,10 +28,10 @@ impl DevpodCommandConfig<()> for DeleteProInstanceCommand {
         }
     }
 
-    fn exec(self) -> Result<(), DevpodCommandError> {
-        let cmd = self.new_command()?;
+    fn exec(self, app_handle: &AppHandle) -> Result<(), DevpodCommandError> {
+        let cmd = self.new_command(app_handle)?;
 
-        cmd.status()
+        tauri::async_runtime::block_on(cmd.status())
             .map_err(DevpodCommandError::Failed)?
             .success()
             .then_some(())

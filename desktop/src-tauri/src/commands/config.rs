@@ -1,9 +1,11 @@
 use std::collections::HashMap;
 
-use tauri::api::process::Command;
+use tauri_plugin_shell::process::Command;
+use tauri_plugin_shell::ShellExt;
 use thiserror::Error;
 
 use crate::commands::constants::DEVPOD_BINARY_NAME;
+use crate::AppHandle;
 
 use super::constants::DEVPOD_UI_ENV_VAR;
 
@@ -31,7 +33,7 @@ pub enum DevpodCommandError {
     #[error("unable to collect output from command")]
     Output,
     #[error("command failed")]
-    Failed(#[from] tauri::api::Error),
+    Failed(#[from] tauri_plugin_shell::Error),
     #[error("command exited with non-zero code")]
     Exit,
 }
@@ -44,20 +46,22 @@ impl serde::Serialize for DevpodCommandError {
     }
 }
 pub trait DevpodCommandConfig<T> {
-    fn config(&self) -> CommandConfig {
+    fn config(&self) -> CommandConfig<'_> {
         CommandConfig {
             binary_name: DEVPOD_BINARY_NAME,
             args: vec![],
         }
     }
-    fn exec(self) -> Result<T, DevpodCommandError>;
+    fn exec(self, app_handle: &AppHandle) -> Result<T, DevpodCommandError>;
 
-    fn new_command(&self) -> Result<Command, DevpodCommandError> {
+    fn new_command(&self, app_handle: &AppHandle) -> Result<Command, DevpodCommandError> {
         let config = self.config();
         let env_vars: HashMap<String, String> =
             HashMap::from([(DEVPOD_UI_ENV_VAR.into(), "true".into())]);
 
-        let cmd = Command::new_sidecar(config.binary_name())
+        let cmd = app_handle
+            .shell()
+            .sidecar(config.binary_name())
             .map_err(|_| DevpodCommandError::Sidecar)?
             .envs(env_vars)
             .args(config.args());

@@ -7,6 +7,7 @@ use std::{
     path::PathBuf,
     time::{Duration, SystemTime},
 };
+use tauri::Manager;
 use thiserror::Error;
 
 const ACTION_LOGS_DIR: &str = "action_logs";
@@ -124,7 +125,7 @@ pub fn setup(app_handle: &AppHandle) -> anyhow::Result<()> {
 
 fn get_actions_dir(app_handle: &AppHandle) -> anyhow::Result<PathBuf> {
     let mut dir_path = app_handle
-        .path_resolver()
+        .path()
         .app_data_dir()
         .context("App data dir not found")?;
     dir_path.push(ACTION_LOGS_DIR);

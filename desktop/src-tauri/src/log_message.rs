@@ -1,5 +1,4 @@
-use crate::{commands::DevpodCommandError, AppState, UiMessage};
-use log::{error, info, warn};
+use log::info;
 
 #[tauri::command]
 pub fn log_message(message: String) {

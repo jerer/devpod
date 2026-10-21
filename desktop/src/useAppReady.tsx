@@ -9,7 +9,7 @@ import {
   useDisclosure,
   useToast,
 } from "@chakra-ui/react"
-import { appWindow } from "@tauri-apps/api/window"
+import { getCurrentWindow } from "@tauri-apps/api/window"
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router"
 import { client } from "./client"
@@ -42,14 +42,14 @@ export function useAppReady() {
   const handleMessage: Parameters<typeof client.subscribe>[1] = useCallback(
     async (event) => {
       if (event.type === "ShowDashboard") {
-        await appWindow.setFocus()
+        await getCurrentWindow().setFocus()
         navigate(Routes.WORKSPACES)
 
         return
       }
 
       if (event.type === "ShowToast") {
-        await appWindow.setFocus()
+        await getCurrentWindow().setFocus()
         toast({
           title: event.title,
           description: event.message,
@@ -62,7 +62,7 @@ export function useAppReady() {
       }
 
       if (event.type === "CommandFailed") {
-        await appWindow.setFocus()
+        await getCurrentWindow().setFocus()
         const message = Object.entries(event)
           .filter(([key]) => key !== "type")
           .map(([key, value]) => `${key}: ${value}`)
@@ -98,7 +98,7 @@ export function useAppReady() {
           data.suggestedOptions = event.options
         }
 
-        await appWindow.setFocus()
+        await getCurrentWindow().setFocus()
         // ensure pro is enabled
         setSetting("experimental_devPodPro", true)
         handleProLogin(data)
@@ -107,7 +107,7 @@ export function useAppReady() {
       }
 
       if (event.type === "ImportWorkspace") {
-        await appWindow.setFocus()
+        await getCurrentWindow().setFocus()
         const importResult = await client.pro.importWorkspace({
           workspaceID: event.workspace_id,
           workspaceUID: event.workspace_uid,

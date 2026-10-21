@@ -3,16 +3,15 @@ use crate::ui_messages::{
     UiMessage,
 };
 use crate::AppState;
-use log::{error, info, warn};
+use log::{info, warn};
 use serde::{Deserialize, Serialize};
+#[cfg(target_os = "linux")]
 use std::env;
-use std::path::Path;
 use tauri::{AppHandle, Manager, State};
 use thiserror::Error;
 use url::Url;
 
-// Should match the one from "tauri.config.json" and "Info.plist"
-const APP_IDENTIFIER: &str = "sh.loft.devpod";
+#[allow(dead_code)]
 const APP_URL_SCHEME: &str = "devpod";
 
 pub struct CustomProtocol;
@@ -155,48 +154,33 @@ impl ProHandler {
 
 impl CustomProtocol {
     pub fn init() -> Self {
-        tauri_plugin_deep_link::prepare(APP_IDENTIFIER);
         Self {}
     }
 
     pub fn setup(&self, app: AppHandle) {
+        use tauri_plugin_deep_link::DeepLinkExt;
+
         let app_handle = app.clone();
-
-        let result = tauri_plugin_deep_link::register(APP_URL_SCHEME, move |url_scheme| {
-            tauri::async_runtime::block_on(async {
-                info!("App opened with URL: {:?}", url_scheme.to_string());
-
-                let request = UrlParser::parse(&url_scheme.to_string());
-                let app_state = app_handle.state::<AppState>();
-                if let Err(err) = request {
-                    warn!("Failed to broadcast custom protocol message: {:?}", err);
-                    return;
-                }
-                let request = request.unwrap();
-
-                match request.host.as_str() {
-                    "open" => {
-                        let msg = CustomProtocol::parse(&request);
-                        OpenHandler::handle(msg, app_state).await
-                    }
-                    "import" => {
-                        let msg = CustomProtocol::parse(&request);
-                        ImportHandler::handle(msg, app_state).await
-                    }
-                    "pro" => {
-                        let msg = CustomProtocol::parse(&request);
-                        ProHandler::handle(msg, app_state).await
-                    }
-                    _ => {}
-                }
-            })
+        let _ = app.deep_link().on_open_url(move |event| {
+            for url in event.urls() {
+                handle_url(&app_handle, url);
+            }
         });
 
-        #[cfg(target_os = "linux")]
+        // Handle cold start (app launched via a deep link)
+        if let Ok(Some(urls)) = app.deep_link().get_current() {
+            for url in urls {
+                handle_url(&app, url);
+            }
+        }
+
+        #[cfg(any(target_os = "linux", target_os = "windows"))]
         {
-            match result {
-                Ok(..) => {}
-                Err(error) => {
+            let result = app.deep_link().register(APP_URL_SCHEME);
+
+            #[cfg(target_os = "linux")]
+            {
+                if let Err(error) = &result {
                     let mut is_flatpak = false;
 
                     match env::var("FLATPAK_ID") {
@@ -229,10 +213,10 @@ impl CustomProtocol {
                         })
                     }
                 }
-            };
-        }
+            }
 
-        let _ = result;
+            let _ = result;
+        }
     }
 
     fn parse<'a, Msg>(request: &'a Request) -> Result<Msg, ParseError>
@@ -242,6 +226,36 @@ impl CustomProtocol {
         serde_qs::from_str::<Msg>(&request.query)
             .map_err(|_| ParseError::InvalidQuery(request.query.clone()))
     }
+}
+
+fn handle_url(app_handle: &AppHandle, url: Url) {
+    tauri::async_runtime::block_on(async {
+        info!("App opened with URL: {:?}", url.to_string());
+
+        let request = UrlParser::parse(&url.to_string());
+        let app_state = app_handle.state::<AppState>();
+        if let Err(err) = request {
+            warn!("Failed to broadcast custom protocol message: {:?}", err);
+            return;
+        }
+        let request = request.unwrap();
+
+        match request.host.as_str() {
+            "open" => {
+                let msg = CustomProtocol::parse(&request);
+                OpenHandler::handle(msg, app_state).await
+            }
+            "import" => {
+                let msg = CustomProtocol::parse(&request);
+                ImportHandler::handle(msg, app_state).await
+            }
+            "pro" => {
+                let msg = CustomProtocol::parse(&request);
+                ProHandler::handle(msg, app_state).await
+            }
+            _ => {}
+        }
+    })
 }
 
 #[derive(Error, Debug, Clone, Serialize)]

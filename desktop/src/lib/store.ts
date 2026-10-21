@@ -1,4 +1,4 @@
-import { Store as TauriPluginStore } from "tauri-plugin-store-api"
+import { Store as TauriPluginStore } from "@tauri-apps/plugin-store"
 import { TUnsubscribeFn } from "../types"
 import { EventManager } from "./eventManager"
 import { exists } from "./helpers"
@@ -83,17 +83,18 @@ export class LocalStorageBackend<T extends TBaseStore> implements TStorageBacken
 }
 
 export class FileStorageBackend<T extends TBaseStore> implements TStorageBackend<T> {
-  private readonly store: TauriPluginStore
+  private readonly store: Promise<TauriPluginStore>
 
   constructor(name: string) {
     const fileName = `.${name}.json`
-    this.store = new TauriPluginStore(fileName)
+    this.store = TauriPluginStore.load(fileName)
   }
 
   public async set<TKey extends keyof T>(key: TKey, value: T[TKey]): Promise<void> {
     try {
-      await this.store.set(key.toString(), value)
-      await this.store.save()
+      const store = await this.store
+      await store.set(key.toString(), value)
+      await store.save()
     } catch {
       // TODO: let caller know, noop for now
     }
@@ -101,7 +102,8 @@ export class FileStorageBackend<T extends TBaseStore> implements TStorageBackend
 
   public async get<TKey extends keyof T>(key: TKey): Promise<T[TKey] | null> {
     try {
-      const maybeValue = await this.store.get<T[TKey] | null>(key.toString())
+      const store = await this.store
+      const maybeValue = await store.get<T[TKey]>(key.toString())
       if (!exists(maybeValue)) {
         return null
       }
@@ -113,13 +115,15 @@ export class FileStorageBackend<T extends TBaseStore> implements TStorageBackend
   }
 
   public async remove<TKey extends keyof T>(key: TKey): Promise<void> {
-    await this.store.delete(key.toString())
-    await this.store.save()
+    const store = await this.store
+    await store.delete(key.toString())
+    await store.save()
   }
 
   public async clear(): Promise<void> {
-    await this.store.clear()
-    await this.store.save()
+    const store = await this.store
+    await store.clear()
+    await store.save()
   }
 }
 

@@ -215,6 +215,7 @@ fn find_fs_type(curr_path: &Path, mount_lines: &Lines) -> Option<String> {
 fn install(app_handle: AppHandle, force: bool) -> Result<(), InstallCLIError> {
     use log::error;
     use std::fs;
+    use tauri::Manager;
     use windows::Win32::{
         Foundation::{GetLastError, HWND, LPARAM},
         UI::WindowsAndMessaging::{SendMessageTimeoutW, SMTO_ABORTIFHUNG, WM_SETTINGCHANGE},
@@ -231,8 +232,9 @@ fn install(app_handle: AppHandle, force: bool) -> Result<(), InstallCLIError> {
 
     let cli_path = get_cli_path().map_err(|e| InstallCLIError::NoExePath(e))?;
     let mut bin_dir = app_handle
-        .path_resolver()
+        .path()
         .app_data_dir()
+        .ok()
         .ok_or(InstallCLIError::DataDir)?;
     bin_dir.push("bin");
 

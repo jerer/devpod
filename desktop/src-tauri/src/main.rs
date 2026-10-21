@@ -3,10 +3,6 @@
     windows_subsystem = "windows"
 )]
 
-#[cfg(target_os = "macos")]
-#[macro_use]
-extern crate objc;
-
 mod action_logs;
 mod commands;
 mod community_contributions;
@@ -34,12 +30,12 @@ use custom_protocol::CustomProtocol;
 use log::{error, info};
 use std::sync::{Arc, Mutex};
 use system_tray::SystemTray;
-use tauri::{Manager, Menu, Wry};
+use tauri::Manager;
 use tokio::sync::mpsc::{self, Sender};
 use ui_messages::UiMessage;
 use workspaces::WorkspacesState;
 
-pub type AppHandle = tauri::AppHandle<Wry>;
+pub type AppHandle = tauri::AppHandle;
 
 #[derive(Debug)]
 pub struct AppState {
@@ -62,23 +58,24 @@ fn main() -> anyhow::Result<()> {
 
     let ctx = tauri::generate_context!();
     let app_name = ctx.package_info().name.to_string();
-    let menu = if cfg!(target_os = "macos") {
-        Menu::os_default(&app_name)
-    } else {
-        Menu::new()
-    };
 
     let custom_protocol = CustomProtocol::init();
     let contributions = community_contributions::init()?;
 
-    let system_tray = SystemTray::new();
-    let system_tray_event_handler = system_tray.get_event_handler();
-
     let (tx, rx) = mpsc::channel::<UiMessage>(10);
 
-    let tx2 = tx.clone();
-
-    let mut app_builder = tauri::Builder::default()
+    let app_builder = tauri::Builder::default()
+        .plugin(logging::build_plugin())
+        .plugin(tauri_plugin_store::Builder::default().build())
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_os::init())
+        .plugin(tauri_plugin_deep_link::init())
         .manage(AppState {
             workspaces: Arc::new(Mutex::new(WorkspacesState::default())),
             community_contributions: Arc::new(Mutex::new(contributions)),
@@ -90,56 +87,68 @@ fn main() -> anyhow::Result<()> {
             #[cfg(feature = "enable-updater")]
             update_installed: Arc::new(Mutex::new(false)),
         })
-        .plugin(logging::build_plugin())
-        .plugin(tauri_plugin_store::Builder::default().build())
-        .system_tray(system_tray.build_tray(vec![Box::new(&WorkspacesState::default())]))
-        .menu(menu)
-        .setup(move |app| {
-            info!("Setup application");
+        .menu(|app| {
+            if cfg!(target_os = "macos") {
+                tauri::menu::Menu::default(app)
+            } else {
+                tauri::menu::Menu::new(app)
+            }
+        });
 
-            providers::check_dangling_provider(&app.handle());
-            let window_helper = window::WindowHelper::new(app.handle());
+    #[cfg(feature = "enable-updater")]
+    let app_builder = app_builder.plugin(tauri_plugin_updater::Builder::new().build());
 
-            let window = app.get_window("main").unwrap();
-            window_helper.setup(&window);
+    let mut app_builder = app_builder.setup(move |app| {
+        info!("Setup application");
 
-            workspaces::setup(&app.handle(), app.state());
-            community_contributions::setup(app.state());
-            action_logs::setup(&app.handle())?;
-            custom_protocol.setup(app.handle());
+        let system_tray = SystemTray::new();
+        let tray =
+            system_tray.build_tray(app.handle(), vec![Box::new(&WorkspacesState::default())])?;
+        let handler = system_tray.get_event_handler();
+        tray.on_menu_event(move |app, event| handler(app, event));
 
-            #[cfg(feature = "enable-updater")]
-            let app_handle = app.handle();
-            #[cfg(feature = "enable-updater")]
-            tauri::async_runtime::spawn(async move {
-                let update_helper = updates::UpdateHelper::new(&app_handle);
-                if let Ok(releases) = update_helper.fetch_releases().await {
-                    let state = app_handle.state::<AppState>();
-                    let mut releases_state = state.releases.lock().unwrap();
-                    *releases_state = releases;
-                }
+        providers::check_dangling_provider(app.handle());
+        let window_helper = window::WindowHelper::new(app.handle().clone());
 
-                update_helper.poll().await;
-            });
+        let window = app.get_webview_window("main").unwrap();
+        window_helper.setup(&window);
 
-            let app_handle = app.handle();
-            tauri::async_runtime::spawn(async move {
-                if let Err(err) = server::setup(&app_handle).await {
-                    error!("Failed to start server: {}", err);
-                }
-            });
+        workspaces::setup(app.handle(), app.state());
+        community_contributions::setup(app.state());
+        action_logs::setup(app.handle())?;
+        custom_protocol.setup(app.handle().clone());
 
-            let app_handle = app.handle();
-            tauri::async_runtime::spawn(async move {
-                ui_messages::UiMessageHelper::new(app_handle, app_name, window_helper)
-                    .listen(rx)
-                    .await;
-            });
+        #[cfg(feature = "enable-updater")]
+        let app_handle = app.handle().clone();
+        #[cfg(feature = "enable-updater")]
+        tauri::async_runtime::spawn(async move {
+            let update_helper = updates::UpdateHelper::new(&app_handle);
+            if let Ok(releases) = update_helper.fetch_releases().await {
+                let state = app_handle.state::<AppState>();
+                let mut releases_state = state.releases.lock().unwrap();
+                *releases_state = releases;
+            }
 
-            info!("Setup done");
-            Ok(())
-        })
-        .on_system_tray_event(system_tray_event_handler);
+            update_helper.poll().await;
+        });
+
+        let app_handle = app.handle().clone();
+        tauri::async_runtime::spawn(async move {
+            if let Err(err) = server::setup(&app_handle).await {
+                error!("Failed to start server: {}", err);
+            }
+        });
+
+        let app_handle = app.handle().clone();
+        tauri::async_runtime::spawn(async move {
+            ui_messages::UiMessageHelper::new(app_handle, app_name, window_helper)
+                .listen(rx)
+                .await;
+        });
+
+        info!("Setup done");
+        Ok(())
+    });
 
     #[cfg(feature = "enable-updater")]
     {
@@ -155,7 +164,8 @@ fn main() -> anyhow::Result<()> {
             log_message::log_message,
             community_contributions::get_contributions,
             updates::get_pending_update,
-            updates::check_updates
+            updates::check_updates,
+            updates::install_update
         ]);
     }
     #[cfg(not(feature = "enable-updater"))]
@@ -180,22 +190,10 @@ fn main() -> anyhow::Result<()> {
 
     info!("Run");
 
-    #[cfg(feature = "enable-updater")]
-    let config = app.config();
     app.run(move |app_handle, event| {
         let exit_requested_tx = tx.clone();
 
         match event {
-            #[cfg(feature = "enable-updater")]
-            tauri::RunEvent::Updater(updater_event) => {
-                let app_handle = app_handle.clone();
-                let app_identifier = config.tauri.bundle.identifier.clone();
-                tauri::async_runtime::spawn(async move {
-                    updates::UpdateHelper::new(&app_handle)
-                        .handle_event(updater_event, &app_identifier)
-                        .await;
-                });
-            }
             // Prevents app from exiting when last window is closed, leaving the system tray active
             tauri::RunEvent::ExitRequested { api, .. } => {
                 tauri::async_runtime::block_on(async move {
@@ -205,13 +203,14 @@ fn main() -> anyhow::Result<()> {
                 });
                 api.prevent_exit();
             }
+            #[allow(unused_variables)]
             tauri::RunEvent::WindowEvent { event, label, .. } => {
                 if let tauri::WindowEvent::Destroyed = event {
                     providers::check_dangling_provider(app_handle);
                     #[cfg(target_os = "macos")]
                     {
                         let window_helper = window::WindowHelper::new(app_handle.clone());
-                        let window_count = app_handle.windows().len();
+                        let window_count = app_handle.webview_windows().len();
                         info!("Window \"{}\" destroyed, {} remaining", label, window_count);
                         if window_count == 0 {
                             window_helper.set_dock_icon_visibility(false);

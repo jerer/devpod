@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api"
+import { invoke } from "@tauri-apps/api/core"
 import { TActionID, TActionName, TActionObj } from "../../contexts"
 import { Result, ResultError, Return, THandler, exists, isError, noop } from "../../lib"
 import {

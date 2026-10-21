@@ -17,8 +17,8 @@
 To build the app on Linux, you will need the following dependencies:
 
 ```console
-sudo apt-get install libappindicator3-1 libgdk-pixbuf2.0-0 libbsd0 libxdmcp6 libwmf-0.2-7 libwmf-0.2-7-gtk libgtk-3-0 libwmf-dev libwebkit2gtk-4.0-37 librust-openssl-sys-dev librust-glib-sys-dev
- sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libayatana-appindicator3-dev librsvg2-dev file build-essential
+sudo apt-get install libappindicator3-1 libgdk-pixbuf2.0-0 libbsd0 libxdmcp6 libwmf-0.2-7 libwmf-0.2-7-gtk libgtk-3-0 libwmf-dev libwebkit2gtk-4.1-0 libjavascriptcoregtk-4.1-0 librust-openssl-sys-dev librust-glib-sys-dev
+sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libjavascriptcoregtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev file build-essential
 ```
 
 ### Additional Information
@@ -35,7 +35,7 @@ To spin up the application in development mode, run `yarn tauri dev`. It will re
 Tauri should automatically restart the app if your backend code changes and vite is responsible for hot module updates in the frontend.
 Enable debug logging to stdout during development with `DEBUG=true yarn tauri dev`.
 
-If you just want to preview the project locally, make sure to disabled the auto update feature by setting `desktop/src-tauri/tauri.conf.json->updater.active=false`. Please be careful not to commit this change later on.
+The updater is only compiled when the `enable-updater` Cargo feature is enabled (used by the release build scripts), so `yarn tauri dev` does not perform update checks.
 Once you're happy with the current state, give it a spin in release mode by running `yarn tauri build`. You can find the packaged version of the application in the `src-tauri/target/release/{PLATFORM}` folder.
 
 ## Check Type Errors

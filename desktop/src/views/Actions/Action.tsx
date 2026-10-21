@@ -9,7 +9,7 @@ import { Routes } from "../../routes"
 import { DownloadIcon } from "@chakra-ui/icons"
 import { client } from "@/client"
 import { useMutation } from "@tanstack/react-query"
-import { dialog } from "@tauri-apps/api"
+import { save } from "@tauri-apps/plugin-dialog"
 
 export function Action() {
   const [searchParams] = useSearchParams()
@@ -45,7 +45,7 @@ export function Action() {
         throw new Error(`Unable to retrieve file for action ${actionID}`)
       }
 
-      const targetFile = await dialog.save({
+      const targetFile = await save({
         title: "Save Logs",
         filters: [{ name: "format", extensions: ["log", "txt"] }],
       })

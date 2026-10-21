@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::AppHandle;
+
 use super::{
     config::{CommandConfig, DevpodCommandConfig, DevpodCommandError},
     constants::{DEVPOD_BINARY_NAME, DEVPOD_COMMAND_LIST, DEVPOD_COMMAND_PRO, FLAG_OUTPUT_JSON},
@@ -29,20 +31,18 @@ impl ListProInstancesCommand {
     }
 }
 impl DevpodCommandConfig<Vec<ProInstance>> for ListProInstancesCommand {
-    fn config(&self) -> CommandConfig {
+    fn config(&self) -> CommandConfig<'_> {
         CommandConfig {
             binary_name: DEVPOD_BINARY_NAME,
             args: vec![DEVPOD_COMMAND_PRO, DEVPOD_COMMAND_LIST, FLAG_OUTPUT_JSON],
         }
     }
 
-    fn exec(self) -> Result<Vec<ProInstance>, DevpodCommandError> {
-        let output = self
-            .new_command()?
-            .output()
-            .map_err(|_| DevpodCommandError::Output)?;
+    fn exec(self, app_handle: &AppHandle) -> Result<Vec<ProInstance>, DevpodCommandError> {
+        let cmd = self.new_command(app_handle)?;
+        let output =
+            tauri::async_runtime::block_on(cmd.output()).map_err(|_| DevpodCommandError::Output)?;
 
-        self.deserialize(&output.stdout)
+        self.deserialize(&String::from_utf8_lossy(&output.stdout))
     }
 }
-

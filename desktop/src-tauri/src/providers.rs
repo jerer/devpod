@@ -33,7 +33,7 @@ pub fn check_dangling_provider(app_handle: &AppHandle) {
             dangling_providers.join(", ")
         );
 
-        let pro_instances = match ListProInstancesCommand::new().exec() {
+        let pro_instances = match ListProInstancesCommand::new().exec(app_handle) {
             Ok(pro_instances) => pro_instances,
             Err(err) => {
                 error!("Failed to list pro instances, {}", err);
@@ -43,12 +43,12 @@ pub fn check_dangling_provider(app_handle: &AppHandle) {
 
         for dangling_provider in dangling_providers.iter() {
             // Make sure we clean up accompanying pro instances
-            check_pro_instances(&pro_instances, &dangling_provider);
+            check_pro_instances(app_handle, &pro_instances, dangling_provider);
 
             if DeleteProviderCommand::new(dangling_provider.clone())
-                .exec()
+                .exec(app_handle)
                 .is_ok()
-                && store.delete(dangling_provider_key).is_ok()
+                && store.delete(dangling_provider_key)
             {
                 info!(
                     "Successfully deleted dangling provider: {}",
@@ -62,7 +62,11 @@ pub fn check_dangling_provider(app_handle: &AppHandle) {
     });
 }
 
-fn check_pro_instances(pro_instances: &Vec<ProInstance>, dangling_provider: &String) {
+fn check_pro_instances(
+    app_handle: &AppHandle,
+    pro_instances: &Vec<ProInstance>,
+    dangling_provider: &String,
+) {
     if let Some(pro_instance) = pro_instances
         .iter()
         .find(|pro_instance| pro_instance.id() == Some(dangling_provider))
@@ -79,7 +83,7 @@ fn check_pro_instances(pro_instances: &Vec<ProInstance>, dangling_provider: &Str
             dangling_provider, pro_id
         );
 
-        match DeleteProInstanceCommand::new(pro_id.to_string()).exec() {
+        match DeleteProInstanceCommand::new(pro_id.to_string()).exec(app_handle) {
             Ok(_) => info!("Successfully deleted pro instance {}", pro_id),
             Err(err) => error!("Failed to delete pro instance {}, {}", pro_id, err),
         }

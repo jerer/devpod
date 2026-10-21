@@ -12,7 +12,7 @@ use axum::{
 use http::Method;
 use log::{info, warn};
 use std::net::SocketAddr;
-use tauri::{Manager, State};
+use tauri::Manager;
 use tower_http::cors::{Any, CorsLayer};
 
 pub async fn setup(app_handle: &AppHandle) -> anyhow::Result<()> {

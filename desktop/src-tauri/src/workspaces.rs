@@ -12,7 +12,7 @@ use std::{
     sync::{mpsc, Arc},
     thread, time,
 };
-use tauri::{CustomMenuItem, SystemTrayMenu, SystemTrayMenuItem, SystemTraySubmenu};
+use tauri::menu::{IsMenuItem, MenuItem, PredefinedMenuItem, Submenu};
 use tokio::sync::OnceCell;
 
 static INIT: OnceCell<()> = OnceCell::const_new();
@@ -40,40 +40,48 @@ impl WorkspacesState {
 }
 
 impl WorkspacesState {
-    pub fn load() -> Result<Self, DevpodCommandError> {
+    pub fn load(app_handle: &AppHandle) -> Result<Self, DevpodCommandError> {
         let list_workspaces_cmd = ListWorkspacesCommand::new();
 
-        list_workspaces_cmd.exec()
+        list_workspaces_cmd.exec(app_handle)
     }
 }
 
 impl WorkspacesState {}
 
 impl ToSystemTraySubmenu for WorkspacesState {
-    fn to_submenu(&self) -> tauri::SystemTraySubmenu {
-        let mut workspaces_menu = SystemTrayMenu::new();
-
-        workspaces_menu = workspaces_menu.add_item(CustomMenuItem::new(
+    fn to_submenu(&self, app: &AppHandle) -> tauri::Result<Submenu<tauri::Wry>> {
+        let create_workspace = MenuItem::with_id(
+            app,
             Self::CREATE_WORKSPACE_ID,
             "Create Workspace",
-        ));
+            true,
+            None::<&str>,
+        )?;
+        let separator = PredefinedMenuItem::separator(app)?;
+
+        let mut items: Vec<Box<dyn IsMenuItem<tauri::Wry>>> = vec![Box::new(create_workspace)];
 
         if !self.workspaces.is_empty() {
-            workspaces_menu = workspaces_menu.add_native_item(SystemTrayMenuItem::Separator);
+            items.push(Box::new(separator));
         }
 
         for workspace in &self.workspaces {
             if let Some(id) = workspace.id() {
-                let item = CustomMenuItem::new(Self::item_id(id), id);
-                workspaces_menu = workspaces_menu.add_item(item);
+                let item =
+                    MenuItem::with_id(app, Self::item_id(id), id.as_str(), true, None::<&str>)?;
+                items.push(Box::new(item));
             }
         }
 
-        SystemTraySubmenu::new("Workspaces", workspaces_menu)
+        let item_refs: Vec<&dyn IsMenuItem<tauri::Wry>> =
+            items.iter().map(|item| &**item).collect();
+
+        Submenu::with_items(app, "Workspaces", true, &item_refs)
     }
 
     fn on_tray_item_clicked(&self, id: &str) -> Option<SystemTrayClickHandler> {
-        let id = id.clone().to_string();
+        let id = id.to_string();
 
         Some(Box::new(move |_app_handle, state| {
             tauri::async_runtime::block_on(async {
@@ -159,16 +167,17 @@ pub fn setup(app_handle: &AppHandle, state: tauri::State<'_, AppState>) {
             let (tx, rx) = mpsc::channel::<Update>();
 
             let workspaces_tx = tx;
+            let load_app_handle = app_handle.clone();
 
             thread::spawn(move || loop {
-                let workspaces = WorkspacesState::load().unwrap();
+                let workspaces = WorkspacesState::load(&load_app_handle).unwrap();
                 workspaces_tx.send(Update::Workspaces(workspaces)).unwrap();
 
                 thread::sleep(sleep_duration);
             });
 
             let workspaces_state = Arc::clone(&state.workspaces);
-            let tray_handle = app_handle.tray_handle();
+            let handle = app_handle.clone();
 
             // Handle updates from background threads.
             thread::spawn(move || {
@@ -182,10 +191,20 @@ pub fn setup(app_handle: &AppHandle, state: tauri::State<'_, AppState>) {
 
                                 // rebuild menu
                                 let new_menu = SystemTray::new()
-                                    .build_menu(vec![Box::new(current_workspaces)]);
-                                tray_handle
-                                    .set_menu(new_menu)
-                                    .expect("should be able to set menu");
+                                    .build_menu(&handle, vec![Box::new(current_workspaces)]);
+
+                                match new_menu {
+                                    Ok(new_menu) => {
+                                        if let Some(tray) = handle.tray_by_id("main") {
+                                            if let Err(err) = tray.set_menu(Some(new_menu)) {
+                                                error!("Failed to set tray menu: {}", err);
+                                            }
+                                        }
+                                    }
+                                    Err(err) => {
+                                        error!("Failed to build tray menu: {}", err);
+                                    }
+                                }
                             }
                         }
                     }

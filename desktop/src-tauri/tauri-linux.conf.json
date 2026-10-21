@@ -1,7 +1,8 @@
 {
-  "tauri": {
+  "app": {
     "windows": [
       {
+        "label": "main",
         "title": "DevPod",
         "width": 1200,
         "height": 800,
@@ -13,7 +14,8 @@
         "titleBarStyle": "Overlay",
         "fullscreen": false,
         "resizable": true,
-        "hiddenTitle": true
+        "hiddenTitle": true,
+        "visible": false
       }
     ]
   }
