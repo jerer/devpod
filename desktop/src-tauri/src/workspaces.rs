@@ -170,8 +170,16 @@ pub fn setup(app_handle: &AppHandle, state: tauri::State<'_, AppState>) {
             let load_app_handle = app_handle.clone();
 
             thread::spawn(move || loop {
-                let workspaces = WorkspacesState::load(&load_app_handle).unwrap();
-                workspaces_tx.send(Update::Workspaces(workspaces)).unwrap();
+                match WorkspacesState::load(&load_app_handle) {
+                    Ok(workspaces) => {
+                        if workspaces_tx.send(Update::Workspaces(workspaces)).is_err() {
+                            break;
+                        }
+                    }
+                    Err(err) => {
+                        error!("Failed to load workspaces: {}", err);
+                    }
+                }
 
                 thread::sleep(sleep_duration);
             });

@@ -235,10 +235,6 @@ module.exports = {
       items: [
         {
           type: "doc",
-          id: "other-topics/telemetry",
-        },
-        {
-          type: "doc",
           id: "other-topics/mobile-support",
         }
       ],

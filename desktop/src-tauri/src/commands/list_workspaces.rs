@@ -29,6 +29,14 @@ impl DevpodCommandConfig<WorkspacesState> for ListWorkspacesCommand {
         let output =
             tauri::async_runtime::block_on(cmd.output()).map_err(|_| DevpodCommandError::Output)?;
 
+        if !output.status.success() {
+            log::error!(
+                "devpod list failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            return Err(DevpodCommandError::Exit);
+        }
+
         self.deserialize(&String::from_utf8_lossy(&output.stdout))
     }
 }
