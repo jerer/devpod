@@ -1,4 +1,4 @@
-import { Code, Switch } from "@chakra-ui/react"
+import { Code, Switch, useToast } from "@chakra-ui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useCallback, useMemo } from "react"
 import { client } from "../../client"
@@ -10,13 +10,22 @@ const DEFAULT_DEVPOD_AGENT_URL = "https://github.com/loft-sh/devpod/releases/lat
 
 export function useContextOptions() {
   const queryClient = useQueryClient()
+  const toast = useToast()
   const { data: options } = useQuery({
     queryKey: QueryKeys.CONTEXT_OPTIONS,
     queryFn: async () => (await client.context.listOptions()).unwrap(),
   })
-  const { mutate: updateOption } = useMutation({
+  const { mutate: updateOption, mutateAsync: updateOptionAsync } = useMutation({
     mutationFn: async ({ option, value }: { option: TContextOptionName; value: string }) => {
       ;(await client.context.setOption(option, value)).unwrap()
+    },
+    onError: (error) => {
+      toast({
+        title: `Failed to update context option: ${error}`,
+        status: "error",
+        isClosable: true,
+        duration: 30_000,
+      })
     },
     onSettled: () => {
       queryClient.invalidateQueries(QueryKeys.CONTEXT_OPTIONS)
@@ -27,20 +36,21 @@ export function useContextOptions() {
     () => ({
       options,
       updateOption,
+      updateOptionAsync,
     }),
-    [options, updateOption]
+    [options, updateOption, updateOptionAsync]
   )
 }
 
 export function useAgentURLOption() {
-  const { options, updateOption } = useContextOptions()
+  const { options, updateOptionAsync } = useContextOptions()
 
   const handleChanged = useCallback(
     (newValue: string) => {
       const value = newValue.trim()
-      updateOption({ option: "AGENT_URL", value })
+      return updateOptionAsync({ option: "AGENT_URL", value })
     },
-    [updateOption]
+    [updateOptionAsync]
   )
 
   const input = useMemo(

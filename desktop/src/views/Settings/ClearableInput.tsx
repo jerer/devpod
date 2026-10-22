@@ -1,12 +1,21 @@
 import { CloseIcon } from "@chakra-ui/icons"
 import { IconButton, Input, InputGroup, InputLeftAddon, InputRightElement } from "@chakra-ui/react"
-import { FocusEvent, KeyboardEvent, ReactNode, useCallback, useRef, useState } from "react"
+import {
+  ChangeEvent,
+  FocusEvent,
+  KeyboardEvent,
+  ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react"
 
 type TClearableInputProps = Readonly<{
   defaultValue: string
   placeholder: string
   label?: ReactNode
-  onChange: (newValue: string) => void
+  onChange: (newValue: string) => void | Promise<unknown>
 }>
 export function ClearableInput({
   defaultValue,
@@ -14,16 +23,47 @@ export function ClearableInput({
   label,
   onChange,
 }: TClearableInputProps) {
+  const [value, setValue] = useState(defaultValue)
   const [hasFocus, setHasFocus] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const hasFocusRef = useRef(false)
+  const isDirtyRef = useRef(false)
+
+  // keep the field in sync with the value that was loaded from the backend,
+  // but never overwrite a value the user is currently editing
+  useEffect(() => {
+    if (hasFocusRef.current && isDirtyRef.current) return
+
+    setValue(defaultValue)
+  }, [defaultValue])
+
+  const commit = useCallback(
+    async (newValue: string) => {
+      const trimmed = newValue.trim()
+      setValue(trimmed)
+
+      try {
+        await onChange(trimmed)
+      } catch {
+        // the update failed, so restore the last value we know was persisted
+        setValue((current) => (current === trimmed ? defaultValue : current))
+      }
+    },
+    [defaultValue, onChange]
+  )
+
+  const handleChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+    isDirtyRef.current = true
+    setValue(e.target.value)
+  }, [])
 
   const handleBlur = useCallback(
     (e: FocusEvent<HTMLInputElement>) => {
-      const value = e.target.value.trim()
-      onChange(value)
+      hasFocusRef.current = false
+      isDirtyRef.current = false
+      void commit(e.target.value)
       setHasFocus(false)
     },
-    [onChange]
+    [commit]
   )
 
   const handleKeyUp = useCallback((e: KeyboardEvent<HTMLInputElement>) => {
@@ -33,24 +73,24 @@ export function ClearableInput({
   }, [])
 
   const handleFocus = useCallback(() => {
+    hasFocusRef.current = true
     setHasFocus(true)
   }, [])
 
   const handleClearClicked = useCallback(() => {
-    const el = inputRef.current
-    if (!el) return
-
-    el.value = ""
-  }, [])
+    isDirtyRef.current = true
+    setValue("")
+    void commit("")
+  }, [commit])
 
   return (
     <InputGroup maxWidth="96">
       {label && <InputLeftAddon>{label}</InputLeftAddon>}
       <Input
-        ref={inputRef}
         spellCheck={false}
         placeholder={placeholder}
-        defaultValue={defaultValue}
+        value={value}
+        onChange={handleChange}
         onBlur={handleBlur}
         onKeyUp={handleKeyUp}
         onFocus={handleFocus}
