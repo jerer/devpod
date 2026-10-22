@@ -2495,13 +2495,6 @@
   dependencies:
     "@tauri-apps/api" "^2.12.0"
 
-"@tauri-apps/plugin-updater@2.14.0":
-  version "2.14.0"
-  resolved "https://registry.yarnpkg.com/@tauri-apps/plugin-updater/-/plugin-updater-2.14.0.tgz#212adc6dc62e7c9bda0c216f12b3eee0824f6908"
-  integrity sha512-gdylJ9tger4hkyOn24QZd6MNOKVo2Eh53iw5th2Qj1vKTR/+u4PIwJWuiis5hohYvobn6iOvlnALfrqIPSzh7Q==
-  dependencies:
-    "@tauri-apps/api" "^2.12.0"
-
 "@types/babel__core@^7.20.2":
   version "7.20.5"
   resolved "https://registry.yarnpkg.com/@types/babel__core/-/babel__core-7.20.5.tgz#3df15f27ba85319caa07ba08d0721889bb39c017"
@@ -3177,11 +3170,6 @@ color2k@^2.0.2:
   version "2.0.3"
   resolved "https://registry.yarnpkg.com/color2k/-/color2k-2.0.3.tgz#a771244f6b6285541c82aa65ff0a0c624046e533"
   integrity sha512-zW190nQTIoXcGCaU08DvVNFTmQhUpnJfVuAKfWqUQkflXKpaDdpaYoM0iluLS9lgJNHyBF58KKA2FBEwkD7wog==
-
-compare-versions@6.1.1:
-  version "6.1.1"
-  resolved "https://registry.yarnpkg.com/compare-versions/-/compare-versions-6.1.1.tgz#7af3cc1099ba37d244b3145a9af5201b629148a9"
-  integrity sha512-4hm4VPpIecmlg59CHXnRDnqGplJFrbLG4aFEl5vl6cK1u76ws3LLvX7ikFnTDl5vo39sjWD6AaDPYodJp/NNHg==
 
 compute-scroll-into-view@3.0.3:
   version "3.0.3"
@@ -4454,11 +4442,6 @@ lru-cache@^6.0.0:
   integrity sha512-Jo6dJ04CmSjuznwJSS3pUeWmd/H0ffTlkXXgwZi+eq1UCmqQwCh+eLsYOYCwY991i2Fah4h1BEMCx4qThGbsiA==
   dependencies:
     yallist "^4.0.0"
-
-markdown-to-jsx@7.3.2:
-  version "7.3.2"
-  resolved "https://registry.yarnpkg.com/markdown-to-jsx/-/markdown-to-jsx-7.3.2.tgz#f286b4d112dad3028acc1e77dfe1f653b347e131"
-  integrity sha512-B+28F5ucp83aQm+OxNrPkS8z0tMKaeHiy0lHJs3LqCyDQFtWuenaIrkaVTgAm1pf1AU85LXltva86hlaT17i8Q==
 
 merge2@^1.3.0, merge2@^1.4.1:
   version "1.4.1"

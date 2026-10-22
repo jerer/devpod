@@ -12,8 +12,6 @@ export {
 } from "./store"
 export { useArch, usePlatform, useSystemTheme } from "./systemInfo"
 export * from "./types"
-export * from "./releases"
 export { useFormErrors } from "./useFormErrors"
 export { useHover } from "./useHover"
 export { useVersion } from "./useVersion"
-export { useUpdate } from "./useUpdate"

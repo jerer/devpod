@@ -1,10 +1,7 @@
 #![allow(dead_code)]
 
-use crate::{util::with_data_store, AppHandle};
 use serde::Serialize;
 use ts_rs::TS;
-
-const SETTINGS_FILE_NAME: &str = ".settings.json";
 
 #[derive(Debug, Serialize, TS)]
 #[ts(rename_all = "camelCase")]
@@ -17,7 +14,6 @@ pub struct Settings {
     fixed_ide: bool,
     zoom: Zoom,
     transparency: bool,
-    auto_update: bool,
     additional_cli_flags: String,
     additional_env_vars: String,
     dotfiles_url: String,
@@ -69,20 +65,4 @@ enum Zoom {
     Md,
     Lg,
     Xl,
-}
-
-impl Settings {
-    pub fn auto_update_enabled(app_handle: &AppHandle) -> bool {
-        let mut is_enabled = false;
-        let _ = with_data_store(&app_handle, SETTINGS_FILE_NAME, |store| {
-            is_enabled = store
-                .get("autoUpdate")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false);
-
-            Ok(())
-        });
-
-        return is_enabled;
-    }
 }

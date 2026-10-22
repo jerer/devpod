@@ -17,10 +17,6 @@ import {
   VStack,
   Box,
   Badge,
-  HStack,
-  Heading,
-  Button,
-  Link,
   Divider,
 } from "@chakra-ui/react"
 import dayjs from "dayjs"
@@ -28,7 +24,7 @@ import { useMemo } from "react"
 import { Link as RouterLink, useLocation } from "react-router-dom"
 import { useSettings, useAllWorkspaceActions, useProviders } from "../../contexts"
 import { Bell, CheckCircle, ExclamationCircle, ExclamationTriangle, Stack3D } from "../../icons"
-import { getActionDisplayName, useUpdate } from "../../lib"
+import { getActionDisplayName } from "../../lib"
 import { Routes } from "../../routes"
 import { Ripple } from "../Animation"
 import { client } from "../../client"
@@ -43,7 +39,6 @@ export function Notifications() {
   const actionHoverColor = useColorModeValue("gray.100", "gray.800")
   const hasActiveActions = actions.active.length > 0
   const settings = useSettings()
-  const { pendingUpdate, install: installUpdate, isInstalling, isInstallDisabled } = useUpdate()
   const providerUpdateInfo = useProviderUpdates()
   const providerUpdateCount = providerUpdateInfo?.length ?? 0
 
@@ -63,7 +58,7 @@ export function Notifications() {
             icon={
               <>
                 <Bell boxSize={6} position="absolute" />
-                {(pendingUpdate || providerUpdateCount !== 0) && (
+                {providerUpdateCount !== 0 && (
                   <Badge
                     colorScheme="red"
                     position="absolute"
@@ -72,7 +67,7 @@ export function Notifications() {
                     borderRadius="full"
                     right="0"
                     top="0">
-                    {pendingUpdate ? 1 + providerUpdateCount : providerUpdateCount}
+                    {providerUpdateCount}
                   </Badge>
                 )}
                 {hasActiveActions && <Ripple boxSize={10} />}
@@ -87,33 +82,6 @@ export function Notifications() {
             <PopoverArrow backgroundColor={backgroundColor} />
             <PopoverHeader>Notifications</PopoverHeader>
             <PopoverBody overflow="hidden" maxHeight="20rem" paddingInline="0">
-              {pendingUpdate && (
-                <HStack
-                  justifyContent="space-between"
-                  paddingX="7"
-                  paddingTop="2"
-                  paddingBottom="3"
-                  width="calc(100% + 1.5rem)"
-                  transform={"translateX(-0.75rem)"}
-                  borderBottomWidth="thin"
-                  borderColor="inherit"
-                  spacing="0">
-                  <VStack align="start" spacing="0">
-                    <Heading size="xs">{pendingUpdate.tag_name} is available</Heading>
-                    <Text fontSize="xs">
-                      See{" "}
-                      <Link onClick={() => client.open(pendingUpdate.html_url)}>release notes</Link>
-                    </Text>
-                  </VStack>
-                  <Button
-                    isLoading={isInstalling}
-                    isDisabled={isInstallDisabled}
-                    onClick={() => installUpdate()}
-                    variant="outline">
-                    Install now
-                  </Button>
-                </HStack>
-              )}
               <Box width="full" overflowY="auto" maxHeight="17rem" height="full" padding="1">
                 {combinedActions.length === 0 && providerUpdateCount === 0 && (
                   <Text padding={2}>No notifications</Text>

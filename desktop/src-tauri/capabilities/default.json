@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capabilities for the DevPod desktop application",
-  "windows": ["main", "update_ready"],
+  "windows": ["main"],
   "permissions": [
     "core:default",
     "core:window:allow-start-dragging",
@@ -46,10 +46,8 @@
     "clipboard-manager:allow-write-text",
     "notification:default",
     "process:allow-exit",
-    "process:allow-restart",
     "os:default",
     "deep-link:default",
-    "updater:default",
     {
       "identifier": "opener:allow-open-url",
       "allow": [

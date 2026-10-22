@@ -8,7 +8,6 @@ import {
   HStack,
   Heading,
   Icon,
-  Link,
   Radio,
   RadioGroup,
   Select,
@@ -23,20 +22,12 @@ import {
   useColorMode,
   useColorModeValue,
 } from "@chakra-ui/react"
-import { ReactNode, useEffect, useMemo, useState } from "react"
+import { ReactNode } from "react"
 import { HiMagnifyingGlassPlus } from "react-icons/hi2"
 import { client } from "../../client"
 import { ToolbarTitle, useInstallCLI } from "../../components"
 import { TSettings, useChangeSettings } from "../../contexts"
-import {
-  getIDEDisplayName,
-  isMacOS,
-  useArch,
-  usePlatform,
-  useReleases,
-  useUpdate,
-  useVersion,
-} from "../../lib"
+import { getIDEDisplayName, isMacOS } from "../../lib"
 import { useWelcomeModal } from "../../useWelcomeModal"
 import {
   useAgentURLOption,
@@ -52,13 +43,11 @@ import {
   useProxyOptions,
   useSSHKeySignatureOption,
 } from "./useSettingsOptions"
-import { compareVersions } from "compare-versions"
 
 const SETTINGS_TABS = [
   { label: "General", component: <GeneralSettings /> },
   { label: "Customization", component: <CustomizationSettings /> },
   { label: "Appearance", component: <AppearanceSettings /> },
-  { label: "Updates", component: <UpdateSettings /> },
   { label: "Experimental", component: <ExperimentalSettings /> },
 ]
 
@@ -265,109 +254,6 @@ function AppearanceSettings() {
     </>
   )
 }
-function UpdateSettings() {
-  const { settings, set } = useChangeSettings()
-  const platform = usePlatform()
-  const arch = useArch()
-  const version = useVersion()
-  const [selectedVersion, setSelectedVersion] = useState<string | undefined>(undefined)
-  const { isChecking, check, isUpdateAvailable, pendingUpdate } = useUpdate()
-  const releases = useReleases()
-    ?.slice()
-    .sort((a, b) => compareVersions(a.tag_name, b.tag_name))
-  const downloadLink = useMemo(() => {
-    const release = releases?.find((release) => release.tag_name === selectedVersion)
-    if (!release) {
-      return undefined
-    }
-    if (!platform || !arch) {
-      return release.html_url
-    }
-    let p: string = platform
-    if (p === "darwin") {
-      p = "macos"
-    }
-
-    const r = new RegExp(`${p}_${arch}`, "i")
-    const asset = release.assets.find((asset) => r.test(asset.name))
-
-    return asset?.browser_download_url
-  }, [arch, platform, releases, selectedVersion])
-
-  useEffect(() => {
-    if (version) {
-      setSelectedVersion(`v${version}`)
-    }
-  }, [version])
-
-  const updateAvailableMessage = useMemo<undefined | string>(() => {
-    if (isUpdateAvailable === undefined && pendingUpdate === undefined) {
-      return undefined
-    }
-
-    return isUpdateAvailable || pendingUpdate !== undefined
-      ? "New version available"
-      : "No new version"
-  }, [isUpdateAvailable, pendingUpdate])
-
-  return (
-    <>
-      <SettingSection
-        title="Automatically keep up to date"
-        description="Download and install new versions in the background">
-        <Switch
-          isChecked={settings.autoUpdate}
-          onChange={(e) => set("autoUpdate", e.target.checked)}
-        />
-      </SettingSection>
-      <SettingSection
-        title="Versions"
-        description="Manage and explore DevPod versions"
-        showDivider={false}>
-        <>
-          <VStack align="start" width="full" marginBottom="4">
-            <Text fontSize="sm">
-              Current version: {version}
-              <Text as="span" fontWeight="semibold">
-                {updateAvailableMessage !== undefined ? ` - ${updateAvailableMessage}` : ""}
-              </Text>
-            </Text>
-            <HStack>
-              <Button variant="outline" isLoading={isChecking} onClick={() => check()}>
-                Check for updates
-              </Button>
-            </HStack>
-          </VStack>
-
-          <Text fontSize="sm">Or download a specific version</Text>
-          <VStack align="start" width="full" overflow="hidden">
-            <Select
-              maxWidth="52"
-              onChange={(e) => setSelectedVersion(e.target.value)}
-              value={selectedVersion}>
-              <option value={undefined}>Select version</option>
-              {releases?.map((release) => (
-                <option key={release.tag_name} value={release.tag_name}>
-                  {release.tag_name}
-                </option>
-              ))}
-            </Select>
-            {downloadLink && (
-              <Text fontSize="sm" width="full">
-                Visit{" "}
-                <Link onClick={() => client.open(downloadLink)} fontSize="sm">
-                  Github
-                </Link>{" "}
-                to download {selectedVersion}
-              </Text>
-            )}
-          </VStack>
-        </>
-      </SettingSection>
-    </>
-  )
-}
-
 function ExperimentalSettings() {
   const { input: cliFlagsInput, helpText: cliFlagsHelpText } = useCLIFlagsOption()
   const { input: extraEnvVarsInput, helpText: extraEnvVarsHelpText } = useExtraEnvVarsOption()

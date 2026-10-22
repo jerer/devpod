@@ -10,7 +10,6 @@ export interface Settings {
   fixedIDE: boolean
   zoom: Zoom
   transparency: boolean
-  autoUpdate: boolean
   additionalCliFlags: string
   additionalEnvVars: string
   dotfilesUrl: string

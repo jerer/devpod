@@ -18,7 +18,6 @@ import { WORKSPACE_SOURCE_BRANCH_DELIMITER, WORKSPACE_SOURCE_COMMIT_DELIMITER } 
 import { startWorkspaceAction, useChangeSettings } from "./contexts"
 import { exists } from "./lib"
 import { Routes } from "./routes"
-import { useChangelogModal } from "./useChangelogModal"
 import { useLoginProModal } from "./views"
 
 export function useAppReady() {
@@ -27,7 +26,6 @@ export function useAppReady() {
   const navigate = useNavigate()
   const toast = useToast()
   const { modal: errorModal, setFailedMessage } = useErrorModal()
-  const { modal: changelogModal } = useChangelogModal(isReadyLockRef.current)
   const { modal: proLoginModal, handleOpenLogin: handleProLogin } = useLoginProModal()
   const { set: setSetting } = useChangeSettings()
 
@@ -264,7 +262,7 @@ export function useAppReady() {
     }
   }, [handleMessage])
 
-  return { errorModal, changelogModal, proLoginModal }
+  return { errorModal, proLoginModal }
 }
 
 function useErrorModal() {

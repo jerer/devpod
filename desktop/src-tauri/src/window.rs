@@ -1,5 +1,6 @@
 use crate::AppHandle;
 use anyhow::{Context, Result};
+#[cfg(target_os = "macos")]
 use log::error;
 use tauri::{WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
@@ -68,30 +69,6 @@ impl WindowHelper {
                 }
             })
             .context("Failed to create main window")
-    }
-
-    pub fn new_update_ready_window(&self) -> Result<()> {
-        let handle = self.app_handle.clone();
-
-        self.app_handle
-            .run_on_main_thread(move || {
-                let window_builder = WebviewWindowBuilder::new(
-                    &handle,
-                    "update_ready",
-                    WebviewUrl::App("update-window/index.html".into()),
-                )
-                .title("DevPod Update")
-                .fullscreen(false)
-                .resizable(false)
-                .transparent(false)
-                .inner_size(300.0, 175.0)
-                .visible(true);
-
-                if let Err(err) = window_builder.build() {
-                    error!("Failed to create update ready window: {}", err);
-                }
-            })
-            .context("Failed to create update ready window")
     }
 }
 

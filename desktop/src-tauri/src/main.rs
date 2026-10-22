@@ -19,8 +19,6 @@ mod settings;
 mod system_tray;
 mod ui_messages;
 mod ui_ready;
-#[cfg(feature = "enable-updater")]
-mod updates;
 mod util;
 mod window;
 mod workspaces;
@@ -42,12 +40,6 @@ pub struct AppState {
     workspaces: Arc<Mutex<WorkspacesState>>,
     community_contributions: Arc<Mutex<CommunityContributions>>,
     ui_messages: Sender<UiMessage>,
-    #[cfg(feature = "enable-updater")]
-    releases: Arc<Mutex<updates::Releases>>,
-    #[cfg(feature = "enable-updater")]
-    pending_update: Arc<Mutex<Option<updates::Release>>>,
-    #[cfg(feature = "enable-updater")]
-    update_installed: Arc<Mutex<bool>>,
 }
 // TODO: build localhost http server
 // should have a /pro/setup endpoint and send the same UI message as the custom protocol
@@ -80,12 +72,6 @@ fn main() -> anyhow::Result<()> {
             workspaces: Arc::new(Mutex::new(WorkspacesState::default())),
             community_contributions: Arc::new(Mutex::new(contributions)),
             ui_messages: tx.clone(),
-            #[cfg(feature = "enable-updater")]
-            releases: Arc::new(Mutex::new(updates::Releases::default())),
-            #[cfg(feature = "enable-updater")]
-            pending_update: Arc::new(Mutex::new(None)),
-            #[cfg(feature = "enable-updater")]
-            update_installed: Arc::new(Mutex::new(false)),
         })
         .menu(|app| {
             if cfg!(target_os = "macos") {
@@ -94,9 +80,6 @@ fn main() -> anyhow::Result<()> {
                 tauri::menu::Menu::new(app)
             }
         });
-
-    #[cfg(feature = "enable-updater")]
-    let app_builder = app_builder.plugin(tauri_plugin_updater::Builder::new().build());
 
     let mut app_builder = app_builder.setup(move |app| {
         info!("Setup application");
@@ -118,20 +101,6 @@ fn main() -> anyhow::Result<()> {
         action_logs::setup(app.handle())?;
         custom_protocol.setup(app.handle().clone());
 
-        #[cfg(feature = "enable-updater")]
-        let app_handle = app.handle().clone();
-        #[cfg(feature = "enable-updater")]
-        tauri::async_runtime::spawn(async move {
-            let update_helper = updates::UpdateHelper::new(&app_handle);
-            if let Ok(releases) = update_helper.fetch_releases().await {
-                let state = app_handle.state::<AppState>();
-                let mut releases_state = state.releases.lock().unwrap();
-                *releases_state = releases;
-            }
-
-            update_helper.poll().await;
-        });
-
         let app_handle = app.handle().clone();
         tauri::async_runtime::spawn(async move {
             if let Err(err) = server::setup(&app_handle).await {
@@ -150,39 +119,18 @@ fn main() -> anyhow::Result<()> {
         Ok(())
     });
 
-    #[cfg(feature = "enable-updater")]
-    {
-        app_builder = app_builder.invoke_handler(tauri::generate_handler![
-            ui_ready::ui_ready,
-            action_logs::write_action_log,
-            action_logs::get_action_logs,
-            action_logs::get_action_log_file,
-            action_logs::sync_action_logs,
-            install_cli::install_cli,
-            get_env::get_env,
-            file_exists::file_exists,
-            log_message::log_message,
-            community_contributions::get_contributions,
-            updates::get_pending_update,
-            updates::check_updates,
-            updates::install_update
-        ]);
-    }
-    #[cfg(not(feature = "enable-updater"))]
-    {
-        app_builder = app_builder.invoke_handler(tauri::generate_handler![
-            ui_ready::ui_ready,
-            action_logs::write_action_log,
-            action_logs::get_action_logs,
-            action_logs::get_action_log_file,
-            action_logs::sync_action_logs,
-            install_cli::install_cli,
-            get_env::get_env,
-            file_exists::file_exists,
-            log_message::log_message,
-            community_contributions::get_contributions,
-        ]);
-    }
+    app_builder = app_builder.invoke_handler(tauri::generate_handler![
+        ui_ready::ui_ready,
+        action_logs::write_action_log,
+        action_logs::get_action_logs,
+        action_logs::get_action_log_file,
+        action_logs::sync_action_logs,
+        install_cli::install_cli,
+        get_env::get_env,
+        file_exists::file_exists,
+        log_message::log_message,
+        community_contributions::get_contributions,
+    ]);
 
     let app = app_builder
         .build(ctx)

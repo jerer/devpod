@@ -4,10 +4,10 @@ use axum::{
         connect_info::ConnectInfo,
         ws::{Message, WebSocket, WebSocketUpgrade},
     },
-    http::{HeaderMap, StatusCode},
-    response::{IntoResponse, Response},
+    http::HeaderMap,
+    response::Response,
     routing::get,
-    Json, Router,
+    Router,
 };
 use http::Method;
 use log::{info, warn};
@@ -17,7 +17,6 @@ use tower_http::cors::{Any, CorsLayer};
 
 pub async fn setup(app_handle: &AppHandle) -> anyhow::Result<()> {
     let handle = app_handle.clone();
-    let handle_releases = app_handle.clone();
     let cors = CorsLayer::new()
         .allow_methods([Method::GET, Method::POST])
         .allow_origin(Any);
@@ -27,7 +26,6 @@ pub async fn setup(app_handle: &AppHandle) -> anyhow::Result<()> {
             "/ws",
             get(move |upgrade, headers, info| ws_handler(upgrade, headers, info, handle.clone())),
         )
-        .route("/releases", get(move || releases_handler(handle_releases)))
         .layer(cors);
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:25842").await?;
@@ -39,22 +37,6 @@ pub async fn setup(app_handle: &AppHandle) -> anyhow::Result<()> {
     .await
     .map_err(anyhow::Error::from);
 }
-async fn releases_handler(app_handle: AppHandle) -> impl IntoResponse {
-    #[cfg(feature = "enable-updater")]
-    {
-        let state = app_handle.state::<AppState>();
-        let releases = state.releases.lock().unwrap();
-        let releases = releases.clone();
-
-        Json(releases)
-    }
-
-    #[cfg(not(feature = "enable-updater"))]
-    {
-        (StatusCode::NOT_FOUND, "Not found")
-    }
-}
-
 async fn ws_handler(
     ws: WebSocketUpgrade,
     headers: HeaderMap,

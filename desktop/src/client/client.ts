@@ -9,10 +9,9 @@ import { open } from "@tauri-apps/plugin-dialog"
 import { copyFile } from "@tauri-apps/plugin-fs"
 import { arch, platform, type Arch, type Platform } from "@tauri-apps/plugin-os"
 import { openPath, openUrl } from "@tauri-apps/plugin-opener"
-import { exit, relaunch } from "@tauri-apps/plugin-process"
+import { exit } from "@tauri-apps/plugin-process"
 import { Command as ShellCommand } from "@tauri-apps/plugin-shell"
 import { TSettings } from "../contexts"
-import { Release } from "../gen"
 import { Result, Return, isError, noop } from "../lib"
 import { TCommunityContributions, TUnsubscribeFn } from "../types"
 import { ContextClient } from "./context"
@@ -163,31 +162,6 @@ class Client {
     }
   }
 
-  public async fetchReleases(): Promise<Result<readonly Release[]>> {
-    try {
-      // WARN: This is a workaround for a memory leak in tauri, see https://github.com/tauri-apps/tauri/issues/4026 for more details.
-      // tl;dr tauri doesn't release the memory in it's invoke api properly which is specially noticeable with larger payload, like the releases.
-      const res = await fetch("http://localhost:25842/releases")
-      if (!res.ok) {
-        return Return.Failed(`Fetch releases: ${res.statusText}`)
-      }
-      const releases = (await res.json()) as readonly Release[]
-
-      return Return.Value(releases)
-    } catch (e) {
-      if (isError(e)) {
-        return Return.Failed(e.message)
-      }
-
-      const errMsg = "Unable to fetch releases"
-      if (typeof e === "string") {
-        return Return.Failed(`${errMsg}: ${e}`)
-      }
-
-      return Return.Failed(errMsg)
-    }
-  }
-
   public async openDir(_dir: "AppData" = "AppData"): Promise<void> {
     try {
       const p = await appDataDir()
@@ -289,43 +263,6 @@ class Client {
     } catch (e) {
       return Return.Failed(`Unable to write to clipboard: ${e}`)
     }
-  }
-
-  public async checkUpdates(): Promise<Result<boolean>> {
-    try {
-      const isOk = await invoke<boolean>("check_updates")
-
-      return Return.Value(isOk)
-    } catch (e) {
-      return Return.Failed(`${e}`)
-    }
-  }
-
-  public async fetchPendingUpdate(): Promise<Result<Release>> {
-    try {
-      const release = await invoke<Release>("get_pending_update")
-
-      return Return.Value(release)
-    } catch (e) {
-      return Return.Failed(`${e}`)
-    }
-  }
-
-  public async installUpdate(): Promise<Result<void>> {
-    try {
-      await invoke("install_update")
-
-      return Return.Ok()
-    } catch (e) {
-      return Return.Failed(`${e}`)
-    }
-  }
-
-  public async restart(): Promise<void> {
-    await relaunch()
-  }
-  public async closeCurrentWindow(): Promise<void> {
-    await getCurrentWindow().close()
   }
 
   public async getSystemTheme(): Promise<TauriTheme | null> {

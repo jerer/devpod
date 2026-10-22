@@ -35,7 +35,6 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(__dirname, "index.html"),
-        updateWindow: resolve(__dirname, "update-window/index.html"),
       },
     },
   },

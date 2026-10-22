@@ -22,7 +22,6 @@ tauri = { version = "2", features = [
 tauri-plugin-deep-link = "2"
 tauri-plugin-store = "2"
 tauri-plugin-log = "2"
-tauri-plugin-updater = "2"
 tauri-plugin-shell = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
@@ -49,14 +48,11 @@ tokio = { version = "1.26.0", features = [
         "net",
 ] }
 thiserror = "1.0.38"
-regex = "1.7.1"
-lazy_static = "1.4.0"
 url = "2.3.1"
 anyhow = "1.0.70"
 dirs = "5.0.1"
 reqwest = { version = "0.11.18", features = ["json"] }
 ts-rs = { version = "6.2.1", features = ["serde-compat", "chrono-impl"] }
-semver = "1.0.18"
 strip-ansi-escapes = "0.1.1"
 axum = { version = "0.7.1", features = ["ws"] }
 tower-http = { version = "0.5.1", features = ["cors"] }
@@ -77,7 +73,6 @@ window-vibrancy = "0.8"
 
 
 [features]
-enable-updater = []
 # by default Tauri runs in production mode
 # when `tauri dev` runs it is executed with `cargo run --no-default-features` if `devUrl` is an URL
 default = ["custom-protocol"]

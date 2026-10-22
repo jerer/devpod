@@ -29,7 +29,6 @@ const initialSettings: TSettings = {
   fixedIDE: false,
   zoom: "md",
   transparency: false,
-  autoUpdate: true,
   additionalCliFlags: "",
   additionalEnvVars: "",
   dotfilesUrl: "",

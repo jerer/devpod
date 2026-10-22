@@ -15,17 +15,17 @@ jobs:
       release_id: ${{ steps.get-release.outputs.id }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
 
       - name: Setup Node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v7
         with:
           node-version: 16
 
       - run: npm install semver
 
       - name: Get Version
-        uses: actions/github-script@v6
+        uses: actions/github-script@v9
         id: get-version
         with:
           script: |
@@ -69,7 +69,7 @@ jobs:
             core.setOutput("package_version", packageVersion)
 
       - name: Get Release
-        uses: actions/github-script@v6
+        uses: actions/github-script@v9
         id: get-release
         with:
           script: |
@@ -89,7 +89,40 @@ jobs:
     needs: create-release
     permissions:
       contents: write
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - host: windows-latest
+            platform: windows
+            target: x86_64-pc-windows-msvc
+            goos: windows
+            goarch: amd64
+            asset_arch: x64
+            bundles: msi
+          - host: macos-latest
+            platform: macos
+            target: x86_64-apple-darwin
+            goos: darwin
+            goarch: amd64
+            asset_arch: x64
+            bundles: dmg
+          - host: macos-latest
+            platform: macos
+            target: aarch64-apple-darwin
+            goos: darwin
+            goarch: arm64
+            asset_arch: aarch64
+            bundles: dmg
+          - host: ubuntu-22.04
+            platform: linux
+            target: x86_64-unknown-linux-gnu
+            goos: linux
+            goarch: amd64
+            asset_arch: amd64
+            bundles: appimage
+    name: ${{ matrix.platform }}-${{ matrix.asset_arch }}
+    runs-on: ${{ matrix.host }}
     env:
       GO111MODULE: on
       GOFLAGS: -mod=vendor
@@ -101,78 +134,128 @@ jobs:
           git config --global core.eol lf
 
       - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Apply Version
-        run: yarn version --new-version ${{ needs.create-release.outputs.package_version }} --no-git-tag-version
-        working-directory: "./desktop"
-
-      - name: Rust setup
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-pc-windows-msvc
-
-      - name: Rust cache
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: "./desktop/src-tauri -> target"
-
-      - name: Go setup
-        uses: actions/setup-go@v2
-        with:
-          go-version: 1.21.8
-
-      - name: Build CLI
-        shell: cmd
-        run: |
-          set GOOS=windows
-          set GOARCH=amd64
-          set BIN_NAME=devpod-cli-x86_64-pc-windows-msvc.exe
-
-          go build -ldflags "-s -w -X github.com/loft-sh/devpod/pkg/version.version="v${{ needs.create-release.outputs.original_package_version }}" -X github.com/loft-sh/devpod/pkg/telemetry.telemetryPrivateKey=${{ secrets.DEVPOD_TELEMETRY_PRIVATE_KEY }}" -o "test\%BIN_NAME%"
-
-          xcopy /F /Y "test\%BIN_NAME%" desktop\src-tauri\bin\*
+        uses: actions/checkout@v7
 
       - name: Sync node version and setup cache
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v7
         with:
           node-version: "lts/*"
           cache: "yarn"
           cache-dependency-path: "./desktop/yarn.lock"
 
+      - name: Apply Version
+        run: yarn version --new-version ${{ needs.create-release.outputs.package_version }} --no-git-tag-version
+        working-directory: "./desktop"
+
+      - name: Install Linux dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            file \
+            libayatana-appindicator3-dev \
+            libfuse2 \
+            libgtk-3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            libxdo-dev \
+            patchelf \
+            pkg-config
+
+      - name: Rust setup
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./desktop/src-tauri -> target"
+          key: ${{ matrix.target }}
+
+      - name: Go setup
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: "go.mod"
+
+      - name: Build CLI
+        if: matrix.platform != 'windows'
+        shell: bash
+        run: |
+          BIN_NAME="devpod-cli-${{ matrix.target }}"
+          mkdir -p test desktop/src-tauri/bin
+
+          CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -ldflags "-s -w -X github.com/loft-sh/devpod/pkg/version.version=v${{ needs.create-release.outputs.original_package_version }} -X github.com/loft-sh/devpod/pkg/telemetry.telemetryPrivateKey=${{ secrets.DEVPOD_TELEMETRY_PRIVATE_KEY }}" -o "test/$BIN_NAME"
+
+          cp "test/$BIN_NAME" "desktop/src-tauri/bin/$BIN_NAME"
+
+      - name: Build CLI
+        if: matrix.platform == 'windows'
+        shell: cmd
+        run: |
+          set GOOS=windows
+          set GOARCH=${{ matrix.goarch }}
+          set BIN_NAME=devpod-cli-${{ matrix.target }}.exe
+
+          go build -ldflags "-s -w -X github.com/loft-sh/devpod/pkg/version.version="v${{ needs.create-release.outputs.original_package_version }}" -X github.com/loft-sh/devpod/pkg/telemetry.telemetryPrivateKey=${{ secrets.DEVPOD_TELEMETRY_PRIVATE_KEY }}" -o "test\%BIN_NAME%"
+
+          copy /Y "test\%BIN_NAME%" "desktop\src-tauri\bin\%BIN_NAME%"
+
       - name: Install frontend dependencies
         run: yarn install
         working-directory: "./desktop"
 
-      - name: Disable updater (no signing keys required)
-        shell: pwsh
-        run: |
-          '{"tauri":{"updater":{"active":false}}}' | Out-File -FilePath "desktop/src-tauri/tauri-ci.conf.json" -Encoding utf8
-
       - name: Build Desktop App
-        uses: tauri-apps/tauri-action@v0.4.5
+        uses: tauri-apps/tauri-action@v1
         with:
           projectPath: "./desktop"
-          args: "--target x86_64-pc-windows-msvc --config src-tauri/tauri-ci.conf.json"
+          args: "--target ${{ matrix.target }} --bundles ${{ matrix.bundles }}"
+          uploadUpdaterJson: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload assets
-        uses: actions/github-script@v6
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require("fs")
 
-            const version = "${{ needs.create-release.outputs.package_version }}".replace("-", ".")
-            const msiName = `DevPod_${version}_x64_en-US.msi`
-            const msiPath = `desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/${msiName}`
-            const cliName = "devpod-windows-amd64.exe"
-            const cliPath = "desktop/src-tauri/bin/devpod-cli-x86_64-pc-windows-msvc.exe"
-
             const releaseId = "${{ needs.create-release.outputs.release_id }}"
+            const version = "${{ needs.create-release.outputs.package_version }}"
+            const platform = "${{ matrix.platform }}"
+            const target = "${{ matrix.target }}"
+            const assetArch = "${{ matrix.asset_arch }}"
+            const cliArch = "${{ matrix.goarch }}"
+            const cliPath = `desktop/src-tauri/bin/devpod-cli-${target}${platform === "windows" ? ".exe" : ""}`
 
-            for (const asset of [{ name: msiName, path: msiPath }, { name: cliName, path: cliPath }]) {
-              console.log("Uploading release asset: ", asset.name)
+            const assets = []
+            if (platform === "windows") {
+              const msiVersion = version.replace("-", ".")
+              const msiName = `DevPod_${msiVersion}_x64_en-US.msi`
+              assets.push({
+                name: msiName,
+                path: `desktop/src-tauri/target/${target}/release/bundle/msi/${msiName}`
+              })
+              assets.push({ name: "devpod-windows-amd64.exe", path: cliPath })
+            } else if (platform === "macos") {
+              const dmgName = `DevPod_${version}_${assetArch}.dmg`
+              assets.push({
+                name: `DevPod_macos_${assetArch}.dmg`,
+                path: `desktop/src-tauri/target/${target}/release/bundle/dmg/${dmgName}`
+              })
+              assets.push({ name: `devpod-darwin-${cliArch}`, path: cliPath })
+            } else {
+              const appImageName = `DevPod_${version}_${assetArch}.AppImage`
+              assets.push({
+                name: "DevPod_linux_amd64.AppImage",
+                path: `desktop/src-tauri/target/${target}/release/bundle/appimage/${appImageName}`
+              })
+              assets.push({ name: `devpod-linux-${cliArch}`, path: cliPath })
+            }
+
+            for (const asset of assets) {
+              console.log("Uploading release asset:", asset.name)
               await github.rest.repos.uploadReleaseAsset({
                 headers: {
                   "content-type": "application/octet-stream",

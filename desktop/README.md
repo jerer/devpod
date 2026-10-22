@@ -35,7 +35,6 @@ To spin up the application in development mode, run `yarn tauri dev`. It will re
 Tauri should automatically restart the app if your backend code changes and vite is responsible for hot module updates in the frontend.
 Enable debug logging to stdout during development with `DEBUG=true yarn tauri dev`.
 
-The updater is only compiled when the `enable-updater` Cargo feature is enabled (used by the release build scripts), so `yarn tauri dev` does not perform update checks.
 Once you're happy with the current state, give it a spin in release mode by running `yarn tauri build`. You can find the packaged version of the application in the `src-tauri/target/release/{PLATFORM}` folder.
 
 ## Check Type Errors
@@ -49,7 +48,7 @@ You can upgrade the version manually or run `yarn version ...`
 
 ## Build desktop app
 
-If your development environment is setup successfully and you're able to run `yarn desktop:dev` without problems, you also should be able to build the app locally by runnning `yarn desktop:build:dev`.
-Notice the `:dev` suffix, if you omit this it'll try to build with the updater enabled. This won't work on your machine as it requires sensitive information.
+If your development environment is setup successfully and you're able to run `yarn desktop:dev` without problems, you also should be able to build the app locally by running `yarn desktop:build:dev` or `yarn desktop:build`.
+Updates are installed manually by downloading and running the latest release.
 
 The output of the command can be found in `desktop/src-tauri/target/release/bundle`.
