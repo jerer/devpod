@@ -29,7 +29,8 @@ type ImportCmd struct {
 	ProviderID    string
 	ProviderReuse bool
 
-	Data string
+	Data     string
+	DataFile string
 }
 
 // NewImportCmd creates a new command
@@ -58,14 +59,19 @@ func NewImportCmd(flags *flags.GlobalFlags) *cobra.Command {
 	importCmd.Flags().StringVar(&cmd.ProviderID, "provider-id", "", "The provider id to use")
 	importCmd.Flags().BoolVar(&cmd.ProviderReuse, "provider-reuse", false, "If provider already exists, reuse existing provider")
 	importCmd.Flags().StringVar(&cmd.Data, "data", "", "The data to import as raw json")
-	_ = importCmd.MarkFlagRequired("data")
+	importCmd.Flags().StringVar(&cmd.DataFile, "data-file", "", "The file to read the workspace configuration from")
 	return importCmd
 }
 
 // Run runs the command logic
 func (cmd *ImportCmd) Run(ctx context.Context, devPodConfig *config.Config, log log.Logger) error {
+	data, err := cmd.readData()
+	if err != nil {
+		return err
+	}
+
 	exportConfig := &provider.ExportConfig{}
-	err := json.Unmarshal([]byte(cmd.Data), exportConfig)
+	err = json.Unmarshal(data, exportConfig)
 	if err != nil {
 		return fmt.Errorf("decode workspace data: %w", err)
 	} else if exportConfig.Workspace == nil {
@@ -112,6 +118,23 @@ func (cmd *ImportCmd) Run(ctx context.Context, devPodConfig *config.Config, log 
 	return nil
 }
 
+func (cmd *ImportCmd) readData() ([]byte, error) {
+	if cmd.Data != "" && cmd.DataFile != "" {
+		return nil, fmt.Errorf("--data and --data-file cannot be used together")
+	} else if cmd.DataFile != "" {
+		data, err := os.ReadFile(cmd.DataFile)
+		if err != nil {
+			return nil, fmt.Errorf("read workspace data file: %w", err)
+		}
+
+		return data, nil
+	} else if cmd.Data == "" {
+		return nil, fmt.Errorf("either --data or --data-file is required")
+	}
+
+	return []byte(cmd.Data), nil
+}
+
 func (cmd *ImportCmd) importWorkspace(devPodConfig *config.Config, exportConfig *provider.ExportConfig, log log.Logger) error {
 	workspaceDir, err := provider.GetWorkspaceDir(devPodConfig.DefaultContext, cmd.WorkspaceID)
 	if err != nil {
@@ -142,6 +165,7 @@ func (cmd *ImportCmd) importWorkspace(devPodConfig *config.Config, exportConfig 
 	workspaceConfig.Context = devPodConfig.DefaultContext
 	workspaceConfig.Machine.ID = cmd.MachineID
 	workspaceConfig.Provider.Name = cmd.ProviderID
+	workspaceConfig.SSHConfigPath = ""
 
 	// save machine config
 	err = provider.SaveWorkspaceConfig(workspaceConfig)

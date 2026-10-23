@@ -1,10 +1,11 @@
-import { Button, IconButton } from "@chakra-ui/react"
+import { Button, HStack, IconButton } from "@chakra-ui/react"
 import { useCallback, useMemo } from "react"
 import { useMatch, useNavigate } from "react-router"
 import { TViewTitle } from "../../components"
 import { ArrowLeft, Plus } from "../../icons"
 import { exists } from "../../lib"
 import { Routes } from "../../routes"
+import { ImportWorkspaceButton } from "./ImportWorkspaceButton"
 
 export function useWorkspaceTitle(): TViewTitle | null {
   const navigate = useNavigate()
@@ -33,14 +34,17 @@ export function useWorkspaceTitle(): TViewTitle | null {
         label: "Workspaces",
         priority: "high",
         trailingAction: (
-          <Button
-            size="sm"
-            variant="outline"
-            aria-label="Create new workspace"
-            leftIcon={<Plus boxSize={5} />}
-            onClick={() => navigate(Routes.WORKSPACE_CREATE)}>
-            Create
-          </Button>
+          <HStack>
+            <ImportWorkspaceButton />
+            <Button
+              size="sm"
+              variant="outline"
+              aria-label="Create new workspace"
+              leftIcon={<Plus boxSize={5} />}
+              onClick={() => navigate(Routes.WORKSPACE_CREATE)}>
+              Create
+            </Button>
+          </HStack>
         ),
       }
     }

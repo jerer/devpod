@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/loft-sh/devpod/cmd/flags"
 	"github.com/loft-sh/devpod/pkg/config"
@@ -16,6 +17,8 @@ import (
 // ExportCmd holds the export cmd flags
 type ExportCmd struct {
 	*flags.GlobalFlags
+
+	OutputFile string
 }
 
 // NewExportCmd creates a new command
@@ -37,6 +40,7 @@ func NewExportCmd(flags *flags.GlobalFlags) *cobra.Command {
 		},
 	}
 
+	exportCmd.Flags().StringVar(&cmd.OutputFile, "output-file", "", "The file to write the exported workspace configuration to. If omitted, the configuration is written to stdout")
 	return exportCmd
 }
 
@@ -59,6 +63,15 @@ func (cmd *ExportCmd) Run(ctx context.Context, devPodConfig *config.Config, args
 	out, err := json.Marshal(exportConfig)
 	if err != nil {
 		return err
+	}
+
+	if cmd.OutputFile != "" {
+		err = os.WriteFile(cmd.OutputFile, out, 0644)
+		if err != nil {
+			return fmt.Errorf("write export file: %w", err)
+		}
+
+		return nil
 	}
 
 	fmt.Println(string(out))

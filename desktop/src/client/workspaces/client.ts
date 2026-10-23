@@ -10,7 +10,7 @@ import {
   TWorkspaceStartConfig,
   TWorkspaceWithoutStatus,
 } from "../../types"
-import { TCommand, TStreamEventListenerFn } from "../command"
+import { isOk, TCommand, TStreamEventListenerFn } from "../command"
 import { CommandCache, TCommandCacheInfo } from "../commandCache"
 import { TDebuggable, TStreamEvent } from "../types"
 import { WorkspaceCommands } from "./workspaceCommands"
@@ -189,6 +189,32 @@ export class WorkspacesClient implements TDebuggable {
     }
 
     return result
+  }
+
+  public async export(id: TWorkspaceID, outputFile: string): Promise<ResultError> {
+    const result = await WorkspaceCommands.ExportWorkspace(id, outputFile).run()
+    if (result.err) {
+      return result
+    }
+
+    if (!isOk(result.val)) {
+      return Return.Failed(`Failed to export workspace ${id}: ${result.val.stderr.trim()}`)
+    }
+
+    return Return.Ok()
+  }
+
+  public async import(dataFile: string): Promise<ResultError> {
+    const result = await WorkspaceCommands.ImportWorkspace(dataFile).run()
+    if (result.err) {
+      return result
+    }
+
+    if (!isOk(result.val)) {
+      return Return.Failed(`Failed to import workspace: ${result.val.stderr.trim()}`)
+    }
+
+    return Return.Ok()
   }
 
   public async checkStatus(

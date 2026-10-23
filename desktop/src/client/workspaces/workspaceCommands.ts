@@ -9,13 +9,16 @@ import {
 import { Command, isOk, serializeRawOptions, toFlagArg, toMultipleFlagArg } from "../command"
 import {
   DEVPOD_COMMAND_DELETE,
+  DEVPOD_COMMAND_EXPORT,
   DEVPOD_COMMAND_GET_WORKSPACE_CONFIG,
   DEVPOD_COMMAND_GET_WORKSPACE_NAME,
   DEVPOD_COMMAND_HELPER,
+  DEVPOD_COMMAND_IMPORT,
   DEVPOD_COMMAND_LIST,
   DEVPOD_COMMAND_STATUS,
   DEVPOD_COMMAND_STOP,
   DEVPOD_COMMAND_UP,
+  DEVPOD_FLAG_DATA_FILE,
   DEVPOD_FLAG_DEBUG,
   DEVPOD_FLAG_DEVCONTAINER_PATH,
   DEVPOD_FLAG_FORCE,
@@ -23,9 +26,12 @@ import {
   DEVPOD_FLAG_IDE,
   DEVPOD_FLAG_JSON_LOG_OUTPUT,
   DEVPOD_FLAG_JSON_OUTPUT,
+  DEVPOD_FLAG_MACHINE_REUSE,
+  DEVPOD_FLAG_OUTPUT_FILE,
   DEVPOD_FLAG_PREBUILD_REPOSITORY,
   DEVPOD_FLAG_PROVIDER,
   DEVPOD_FLAG_PROVIDER_OPTION,
+  DEVPOD_FLAG_PROVIDER_REUSE,
   DEVPOD_FLAG_RECREATE,
   DEVPOD_FLAG_RESET,
   DEVPOD_FLAG_SOURCE,
@@ -176,6 +182,23 @@ export class WorkspaceCommands {
     }
 
     return WorkspaceCommands.newCommand(args)
+  }
+
+  static ExportWorkspace(id: TWorkspaceID, outputFile: string) {
+    return WorkspaceCommands.newCommand([
+      DEVPOD_COMMAND_EXPORT,
+      id,
+      toFlagArg(DEVPOD_FLAG_OUTPUT_FILE, outputFile),
+    ])
+  }
+
+  static ImportWorkspace(dataFile: string) {
+    return WorkspaceCommands.newCommand([
+      DEVPOD_COMMAND_IMPORT,
+      toFlagArg(DEVPOD_FLAG_DATA_FILE, dataFile),
+      DEVPOD_FLAG_MACHINE_REUSE,
+      DEVPOD_FLAG_PROVIDER_REUSE,
+    ])
   }
 
   static GetDevcontainerConfig(rawSource: string) {

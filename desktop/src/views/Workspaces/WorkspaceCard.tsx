@@ -34,10 +34,11 @@ import {
   useToast,
   VStack,
 } from "@chakra-ui/react"
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery } from "@tanstack/react-query"
+import { save } from "@tauri-apps/plugin-dialog"
 import dayjs from "dayjs"
 import { useCallback, useId, useMemo, useRef, useState } from "react"
-import { HiClock, HiOutlineCode, HiShare } from "react-icons/hi"
+import { HiClock, HiOutlineCode, HiOutlineDownload, HiShare } from "react-icons/hi"
 import { HiServerStack } from "react-icons/hi2"
 import { useNavigate } from "react-router"
 import { client } from "../../client"
@@ -576,6 +577,7 @@ function WorkspaceControls({
     workspace.data,
     proInstance
   )
+  const { isExporting, onClick: handleExportClicked } = useExportWorkspace(id)
 
   const handleOpenWithIDEClicked = (id: TWorkspaceID, ide: TIDE["name"]) => async () => {
     if (!ide) {
@@ -703,6 +705,12 @@ function WorkspaceControls({
                 Logs
               </MenuItem>
               <MenuItem
+                isDisabled={isOpenDisabled || isLoading || isExporting}
+                icon={<Icon as={HiOutlineDownload} boxSize={4} />}
+                onClick={handleExportClicked}>
+                Export
+              </MenuItem>
+              <MenuItem
                 isDisabled={isOpenDisabled || isLoading}
                 fontWeight="normal"
                 icon={<Trash boxSize={4} />}
@@ -715,6 +723,47 @@ function WorkspaceControls({
       </ButtonGroup>
     </HStack>
   )
+}
+
+function useExportWorkspace(workspaceID: TWorkspaceID) {
+  const toast = useToast()
+  const { mutate, isLoading } = useMutation({
+    mutationFn: async () => {
+      const targetFile = await save({
+        title: "Export Workspace",
+        defaultPath: `${workspaceID}.json`,
+        filters: [{ name: "DevPod Workspace", extensions: ["json"] }],
+      })
+
+      // user cancelled "save file" dialog
+      if (targetFile === null) {
+        return
+      }
+
+      ;(await client.workspaces.export(workspaceID, targetFile)).unwrap()
+
+      toast({
+        title: `Workspace ${workspaceID} exported`,
+        description: targetFile,
+        status: "success",
+        duration: 5_000,
+        isClosable: true,
+      })
+    },
+    onError(error) {
+      toast({
+        title: `Failed to export workspace: ${error}`,
+        status: "error",
+        duration: 30_000,
+        isClosable: true,
+      })
+    },
+  })
+
+  return {
+    isExporting: isLoading,
+    onClick: () => mutate(),
+  }
 }
 
 function useShareWorkspace(
