@@ -112,10 +112,58 @@ func (cmd *SetupContainerCmd) Run(ctx context.Context) error {
 		return err
 	}
 
+	pullFromInsideContainer, _ := workspaceInfo.PullFromInsideContainer.Bool()
+	if workspaceInfo.Source.GitRepository == "" {
+		pullFromInsideContainer = false
+	}
+
+	if cmd.InjectGitCredentials {
+		// configure git credentials
+		cancelCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		cleanupFunc, err := configureSystemGitCredentials(cancelCtx, cancel, tunnelClient, logger)
+		if err != nil {
+			logger.Errorf("Error configuring git credentials: %v", err)
+		} else {
+			defer cleanupFunc()
+		}
+	}
+
+	cloneTarget := setupInfo.SubstitutionContext.ContainerWorkspaceFolder
+	if workspaceMount := config.ParseMount(setupInfo.SubstitutionContext.WorkspaceMount); workspaceMount.Target != "" {
+		cloneTarget = workspaceMount.Target
+	}
+
+	if pullFromInsideContainer {
+		files, err := os.ReadDir(cloneTarget)
+		if err != nil || len(files) == 0 {
+			err = agent.CloneRepositoryForWorkspace(ctx,
+				&workspaceInfo.Source,
+				&workspaceInfo.Agent,
+				cloneTarget,
+				"",
+				workspaceInfo.CLIOptions,
+				false,
+				logger,
+			)
+			if err != nil {
+				logger.Warnf("Failed to clone repository inside the container, falling back to uploading the local workspace: %v", err)
+				if clearErr := clearDirectory(cloneTarget); clearErr != nil {
+					logger.Debugf("Failed to clear workspace folder: %v", clearErr)
+				}
+				pullFromInsideContainer = false
+			}
+		}
+	}
+
 	// sync mounts
 	if cmd.StreamMounts {
 		mounts := config.GetMounts(setupInfo)
 		for _, m := range mounts {
+			if pullFromInsideContainer && m.Target == cloneTarget {
+				continue
+			}
+
 			files, err := os.ReadDir(m.Target)
 			if err == nil && len(files) > 0 {
 				continue
@@ -146,32 +194,6 @@ func (cmd *SetupContainerCmd) Run(ctx context.Context) error {
 	err = fillContainerEnv(setupInfo)
 	if err != nil {
 		return err
-	}
-
-	if cmd.InjectGitCredentials {
-		// configure git credentials
-		cancelCtx, cancel := context.WithCancel(ctx)
-		defer cancel()
-		cleanupFunc, err := configureSystemGitCredentials(cancelCtx, cancel, tunnelClient, logger)
-		if err != nil {
-			logger.Errorf("Error configuring git credentials: %v", err)
-		} else {
-			defer cleanupFunc()
-		}
-	}
-
-	if b, err := workspaceInfo.PullFromInsideContainer.Bool(); err == nil && b {
-		if err := agent.CloneRepositoryForWorkspace(ctx,
-			&workspaceInfo.Source,
-			&workspaceInfo.Agent,
-			setupInfo.SubstitutionContext.ContainerWorkspaceFolder,
-			"",
-			workspaceInfo.CLIOptions,
-			true,
-			logger,
-		); err != nil {
-			return err
-		}
 	}
 
 	// setup container
@@ -575,4 +597,19 @@ func configureSystemGitCredentials(ctx context.Context, cancel context.CancelFun
 	}
 
 	return cleanup, nil
+}
+
+func clearDirectory(dir string) error {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		if err := os.RemoveAll(filepath.Join(dir, entry.Name())); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

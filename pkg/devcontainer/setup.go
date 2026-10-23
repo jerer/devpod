@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -61,6 +62,30 @@ func (r *runner) setupContainer(
 		result.MergedConfig.Mounts = filterWorkspaceMounts(result.MergedConfig.Mounts, r.WorkspaceConfig.ContentFolder, r.Log)
 	}
 
+	_, isDockerDriver := r.Driver.(driver.DockerDriver)
+	pullFromInsideContainer := crane.ShouldUse(&r.WorkspaceConfig.CLIOptions) ||
+		(r.WorkspaceConfig.Workspace.Source.GitRepository != "" && !isDockerDriver)
+
+	if pullFromInsideContainer && !isDockerDriver {
+		workspaceTarget := config.ParseMount(substitutionContext.WorkspaceMount).Target
+		if workspaceTarget == "" {
+			workspaceTarget = substitutionContext.ContainerWorkspaceFolder
+		}
+
+		contextPath := config.GetContextPath(rawConfig)
+		buildInfoFolder := filepath.Join(contextPath, config.DevPodContextFeatureFolder)
+		if _, err := os.Stat(buildInfoFolder); err == nil {
+			relPath, err := filepath.Rel(r.LocalWorkspaceFolder, buildInfoFolder)
+			if err == nil && !strings.HasPrefix(relPath, "..") {
+				result.MergedConfig.Mounts = append(result.MergedConfig.Mounts, &config.Mount{
+					Type:   "bind",
+					Source: buildInfoFolder,
+					Target: path.Join(workspaceTarget, filepath.ToSlash(relPath)),
+				})
+			}
+		}
+	}
+
 	marshalled, err := json.Marshal(result)
 	if err != nil {
 		return nil, err
@@ -79,7 +104,7 @@ func (r *runner) setupContainer(
 		Agent:            r.WorkspaceConfig.Agent,
 		ContentFolder:    r.WorkspaceConfig.ContentFolder,
 	}
-	if crane.ShouldUse(&r.WorkspaceConfig.CLIOptions) {
+	if pullFromInsideContainer {
 		workspaceConfig.PullFromInsideContainer = "true"
 	}
 	// compress container workspace info
@@ -91,9 +116,6 @@ func (r *runner) setupContainer(
 	if err != nil {
 		return nil, err
 	}
-
-	// check if docker driver
-	_, isDockerDriver := r.Driver.(driver.DockerDriver)
 
 	// ssh tunnel
 	sshTunnelCmd := fmt.Sprintf("'%s' helper ssh-server --stdio", agent.ContainerDevPodHelperLocation)
