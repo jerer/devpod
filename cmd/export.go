@@ -18,7 +18,8 @@ import (
 type ExportCmd struct {
 	*flags.GlobalFlags
 
-	OutputFile string
+	OutputFile      string
+	ExcludeProvider bool
 }
 
 // NewExportCmd creates a new command
@@ -41,6 +42,7 @@ func NewExportCmd(flags *flags.GlobalFlags) *cobra.Command {
 	}
 
 	exportCmd.Flags().StringVar(&cmd.OutputFile, "output-file", "", "The file to write the exported workspace configuration to. If omitted, the configuration is written to stdout")
+	exportCmd.Flags().BoolVar(&cmd.ExcludeProvider, "exclude-provider", false, "If true, the provider configuration is not included in the exported workspace")
 	return exportCmd
 }
 
@@ -54,7 +56,7 @@ func (cmd *ExportCmd) Run(ctx context.Context, devPodConfig *config.Config, args
 	}
 
 	// export workspace
-	exportConfig, err := exportWorkspace(devPodConfig, client.WorkspaceConfig())
+	exportConfig, err := exportWorkspace(devPodConfig, client.WorkspaceConfig(), !cmd.ExcludeProvider)
 	if err != nil {
 		return err
 	}
@@ -78,7 +80,7 @@ func (cmd *ExportCmd) Run(ctx context.Context, devPodConfig *config.Config, args
 	return nil
 }
 
-func exportWorkspace(devPodConfig *config.Config, workspaceConfig *provider.Workspace) (*provider.ExportConfig, error) {
+func exportWorkspace(devPodConfig *config.Config, workspaceConfig *provider.Workspace, includeProvider bool) (*provider.ExportConfig, error) {
 	var err error
 
 	// create return config
@@ -98,10 +100,12 @@ func exportWorkspace(devPodConfig *config.Config, workspaceConfig *provider.Work
 		}
 	}
 
-	// export provider
-	retConfig.Provider, err = provider.ExportProvider(devPodConfig, workspaceConfig.Context, workspaceConfig.Provider.Name)
-	if err != nil {
-		return nil, fmt.Errorf("export provider config: %w", err)
+	if includeProvider {
+		// export provider
+		retConfig.Provider, err = provider.ExportProvider(devPodConfig, workspaceConfig.Context, workspaceConfig.Provider.Name)
+		if err != nil {
+			return nil, fmt.Errorf("export provider config: %w", err)
+		}
 	}
 
 	return retConfig, nil

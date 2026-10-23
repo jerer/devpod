@@ -76,8 +76,6 @@ func (cmd *ImportCmd) Run(ctx context.Context, devPodConfig *config.Config, log 
 		return fmt.Errorf("decode workspace data: %w", err)
 	} else if exportConfig.Workspace == nil {
 		return fmt.Errorf("workspace is missing in imported data")
-	} else if exportConfig.Provider == nil {
-		return fmt.Errorf("provider is missing in imported data")
 	}
 
 	// set ids correctly
@@ -88,7 +86,14 @@ func (cmd *ImportCmd) Run(ctx context.Context, devPodConfig *config.Config, log 
 		cmd.WorkspaceID = exportConfig.Workspace.ID
 	}
 	if cmd.ProviderID == "" {
-		cmd.ProviderID = exportConfig.Provider.ID
+		if exportConfig.Provider != nil {
+			cmd.ProviderID = exportConfig.Provider.ID
+		} else {
+			cmd.ProviderID = exportConfig.Workspace.Provider
+		}
+	}
+	if cmd.ProviderID == "" {
+		return fmt.Errorf("provider is missing in imported data")
 	}
 
 	// check if conflicting ids
@@ -165,6 +170,7 @@ func (cmd *ImportCmd) importWorkspace(devPodConfig *config.Config, exportConfig 
 	workspaceConfig.Context = devPodConfig.DefaultContext
 	workspaceConfig.Machine.ID = cmd.MachineID
 	workspaceConfig.Provider.Name = cmd.ProviderID
+	workspaceConfig.Provider.Options = nil
 	workspaceConfig.SSHConfigPath = ""
 
 	// save machine config
@@ -216,6 +222,7 @@ func (cmd *ImportCmd) importMachine(devPodConfig *config.Config, exportConfig *p
 	machineConfig.ID = cmd.MachineID
 	machineConfig.Context = devPodConfig.DefaultContext
 	machineConfig.Provider.Name = cmd.ProviderID
+	machineConfig.Provider.Options = nil
 
 	// save machine config
 	err = provider.SaveMachineConfig(machineConfig)
@@ -228,10 +235,12 @@ func (cmd *ImportCmd) importMachine(devPodConfig *config.Config, exportConfig *p
 }
 
 func (cmd *ImportCmd) importProvider(devPodConfig *config.Config, exportConfig *provider.ExportConfig, log log.Logger) error {
-	// if provider already exists we skip
-	if cmd.ProviderReuse && provider.ProviderExists(devPodConfig.DefaultContext, cmd.ProviderID) {
+	// never overwrite an existing provider, as its configuration is machine specific
+	if provider.ProviderExists(devPodConfig.DefaultContext, cmd.ProviderID) {
 		log.Infof("Reusing existing provider %s", cmd.ProviderID)
 		return nil
+	} else if exportConfig.Provider == nil {
+		return fmt.Errorf("provider %s doesn't exist locally and the imported workspace doesn't contain a provider configuration", cmd.ProviderID)
 	}
 
 	providerDir, err := provider.GetProviderDir(devPodConfig.DefaultContext, cmd.ProviderID)
@@ -305,13 +314,6 @@ func (cmd *ImportCmd) checkForConflictingIDs(exportConfig *provider.ExportConfig
 	if !cmd.MachineReuse && exportConfig.Machine != nil {
 		if provider.MachineExists(devPodConfig.DefaultContext, cmd.MachineID) {
 			return fmt.Errorf("existing machine with id %s found, please use --machine-reuse to skip importing the machine or --machine-id to override the machine id", cmd.MachineID)
-		}
-	}
-
-	// check if provider already exists
-	if !cmd.ProviderReuse && exportConfig.Provider != nil {
-		if provider.ProviderExists(devPodConfig.DefaultContext, cmd.ProviderID) {
-			return fmt.Errorf("existing provider with id %s found, please use --provider-reuse to skip importing the provider or --provider-id to override the provider id", cmd.ProviderID)
 		}
 	}
 

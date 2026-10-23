@@ -38,6 +38,9 @@ type ExportWorkspaceConfig struct {
 	// Context is the workspace context
 	Context string `json:"context,omitempty"`
 
+	// Provider is the provider used by the workspace
+	Provider string `json:"provider,omitempty"`
+
 	// UID is used to identify this specific workspace
 	UID string `json:"uid,omitempty"`
 
@@ -88,10 +91,11 @@ func ExportWorkspace(context, workspaceID string) (*ExportWorkspaceConfig, error
 	}
 
 	return &ExportWorkspaceConfig{
-		ID:      workspaceID,
-		UID:     workspaceConfig.UID,
-		Context: context,
-		Data:    base64.RawStdEncoding.EncodeToString(buf.Bytes()),
+		ID:       workspaceID,
+		UID:      workspaceConfig.UID,
+		Provider: workspaceConfig.Provider.Name,
+		Context:  context,
+		Data:     base64.RawStdEncoding.EncodeToString(buf.Bytes()),
 	}, nil
 }
 
