@@ -94,6 +94,7 @@ func (cmd *ContainerTunnelCmd) Run(ctx context.Context, log log.Logger) error {
 		os.Stdin,
 		os.Stdout,
 		os.Stderr,
+		workspaceInfo.Agent.DownloadURL,
 		log,
 		workspaceInfo.InjectTimeout,
 	)

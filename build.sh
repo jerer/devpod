@@ -52,16 +52,8 @@ echo "==> Installing frontend dependencies"
 cd "$DESKTOP_DIR"
 yarn install
 
-CONFIG="src-tauri/tauri-dev.conf.json"
-FEATURES=()
-
-if [[ "${UPDATER:-0}" == "1" ]]; then
-  CONFIG="src-tauri/tauri.conf.json"
-  FEATURES=(--features enable-updater)
-fi
-
 echo "==> Building AppImage"
-yarn tauri build --config "$CONFIG" --bundles appimage "${FEATURES[@]}"
+yarn tauri build --bundles appimage
 
 echo "==> Done"
 ls -lh "$TAURI_DIR"/target/release/bundle/appimage/*.AppImage

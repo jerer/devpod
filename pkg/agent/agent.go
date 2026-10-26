@@ -312,13 +312,14 @@ func Tunnel(
 	stdin io.Reader,
 	stdout io.Writer,
 	stderr io.Writer,
+	downloadURL string,
 	log log.Logger,
 	timeout time.Duration,
 ) error {
 	// inject agent
 	err := InjectAgent(ctx, func(ctx context.Context, command string, stdin io.Reader, stdout io.Writer, stderr io.Writer) error {
 		return exec(ctx, "root", command, stdin, stdout, stderr)
-	}, false, ContainerDevPodHelperLocation, DefaultAgentDownloadURL(), false, log, timeout)
+	}, false, ContainerDevPodHelperLocation, downloadURL, false, log, timeout)
 	if err != nil {
 		return err
 	}
