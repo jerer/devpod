@@ -106,6 +106,7 @@ export function WorkspaceCard({ workspaceID, isSelected, onSelectionChange }: TW
   } = useDisclosure()
 
   const workspace = useWorkspace(workspaceID)
+  const workspaceActions = useWorkspaceActions(workspaceID)
   const [provider] = useProvider(workspace.data?.provider?.name)
   const [ideName, setIdeName] = useState<string | undefined>(() => {
     if (settings.fixedIDE && defaultIDE?.name) {
@@ -125,13 +126,15 @@ export function WorkspaceCard({ workspaceID, isSelected, onSelectionChange }: TW
   )
 
   const handleLogsClicked = useCallback(() => {
-    let actionID = workspace.current?.id
-    if (actionID === undefined) {
-      actionID = workspace.checkStatus()
+    const actionID = workspace.current?.id ?? workspaceActions?.[0]?.id
+    if (actionID !== undefined) {
+      navigateToAction(actionID)
+
+      return
     }
 
-    navigateToAction(actionID)
-  }, [navigateToAction, workspace])
+    navigateToAction(workspace.checkStatus())
+  }, [navigateToAction, workspace, workspaceActions])
 
   const handleChangeOptionsFinishClicked = (extraProviderOptions: Record<string, string>) => {
     // diff against current workspace options

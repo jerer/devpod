@@ -10,7 +10,7 @@ export function NavigationViewLayout({ title, children }: TNavigationViewLayoutP
     <>
       {exists(title) && (
         <ToolbarTitle>
-          <HStack align="center" width="full" overflow="hidden">
+          <HStack align="center" width="full" overflow="hidden" spacing="3">
             {exists(title.leadingAction) && title.leadingAction}
             <Heading
               overflow="hidden"

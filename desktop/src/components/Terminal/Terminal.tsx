@@ -1,6 +1,17 @@
-import { Box, useColorModeValue, useToken } from "@chakra-ui/react"
+import { Box, Portal, useColorModeValue, useToken } from "@chakra-ui/react"
 import { css } from "@emotion/react"
-import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef } from "react"
+import { writeText } from "@tauri-apps/plugin-clipboard-manager"
+import {
+  forwardRef,
+  MouseEvent as ReactMouseEvent,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import { Terminal as XTermTerminal, ITheme as IXTermTheme } from "xterm"
 import { FitAddon } from "xterm-addon-fit"
 import { exists, remToPx } from "../../lib"
@@ -13,16 +24,79 @@ type TTerminalRef = Readonly<{
 type TTerminalProps = Readonly<{ fontSize: string }>
 export type TTerminal = TTerminalRef
 
+const TERMINAL_FONT_FAMILY =
+  '"JetBrains Mono", "Fira Code", "Cascadia Code", "DejaVu Sans Mono", "Liberation Mono", Menlo, Monaco, Consolas, "Courier New", monospace'
+const CONTEXT_MENU_WIDTH = 160
+const CONTEXT_MENU_HEIGHT = 36
+
+type TContextMenuState = Readonly<{
+  x: number
+  y: number
+  hasSelection: boolean
+}>
+
 export const Terminal = forwardRef<TTerminalRef, TTerminalProps>(function T({ fontSize }, ref) {
   const containerRef = useRef<HTMLDivElement>(null)
   const terminalRef = useRef<XTermTerminal | null>(null)
   const termFitRef = useRef<FitAddon | null>(null)
+  const [contextMenu, setContextMenu] = useState<TContextMenuState | null>(null)
 
   const backgroundColor = useToken("colors", "gray.900")
   const textColor = useToken("colors", "gray.100")
 
   const scrollBarThumbToken = useColorModeValue("gray.500", "gray.200")
   const scrollBarThumbColor = useToken("colors", scrollBarThumbToken)
+
+  const contextMenuBackground = useColorModeValue("white", "gray.800")
+  const contextMenuHover = useColorModeValue("gray.100", "gray.700")
+  const contextMenuBorder = useColorModeValue("gray.200", "gray.600")
+
+  const handleContextMenu = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
+    event.preventDefault()
+
+    setContextMenu({
+      x: Math.min(event.clientX, window.innerWidth - CONTEXT_MENU_WIDTH - 8),
+      y: Math.min(event.clientY, window.innerHeight - CONTEXT_MENU_HEIGHT - 8),
+      hasSelection: (terminalRef.current?.getSelection() ?? "").length > 0,
+    })
+  }, [])
+
+  const copySelection = useCallback(async () => {
+    const selection = terminalRef.current?.getSelection() ?? ""
+    setContextMenu(null)
+    if (selection.length === 0) {
+      return
+    }
+
+    try {
+      await writeText(selection)
+    } catch {
+      /* ignore */
+    }
+  }, [])
+
+  useEffect(() => {
+    if (contextMenu === null) {
+      return
+    }
+
+    const close = () => setContextMenu(null)
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        close()
+      }
+    }
+
+    window.addEventListener("mousedown", close)
+    window.addEventListener("keydown", onKeyDown)
+    window.addEventListener("blur", close)
+
+    return () => {
+      window.removeEventListener("mousedown", close)
+      window.removeEventListener("keydown", onKeyDown)
+      window.removeEventListener("blur", close)
+    }
+  }, [contextMenu])
 
   const terminalTheme = useMemo<Partial<IXTermTheme>>(
     () => ({
@@ -42,6 +116,9 @@ export const Terminal = forwardRef<TTerminalRef, TTerminalProps>(function T({ fo
         disableStdin: true,
         cursorBlink: false,
         fontSize: remToPx(fontSize),
+        fontFamily: TERMINAL_FONT_FAMILY,
+        fontWeight: "400",
+        fontWeightBold: "700",
       })
       terminalRef.current = terminal
 
@@ -121,7 +198,7 @@ export const Terminal = forwardRef<TTerminalRef, TTerminalProps>(function T({ fo
   )
 
   return (
-    <Box width="full" height="full">
+    <Box width="full" height="full" onContextMenu={handleContextMenu}>
       <Box
         height="full"
         as="div"
@@ -158,6 +235,40 @@ export const Terminal = forwardRef<TTerminalRef, TTerminalProps>(function T({ fo
           }
         `}
       />
+      {contextMenu !== null && (
+        <Portal>
+          <Box
+            position="fixed"
+            top={`${contextMenu.y}px`}
+            left={`${contextMenu.x}px`}
+            zIndex="popover"
+            minWidth="10rem"
+            paddingY="1"
+            backgroundColor={contextMenuBackground}
+            borderColor={contextMenuBorder}
+            borderWidth="1px"
+            borderRadius="md"
+            boxShadow="lg"
+            onMouseDown={(event) => event.stopPropagation()}>
+            <Box
+              as="button"
+              display="block"
+              width="full"
+              paddingX="3"
+              paddingY="1.5"
+              textAlign="left"
+              fontSize="sm"
+              userSelect="none"
+              cursor={contextMenu.hasSelection ? "pointer" : "default"}
+              color={contextMenu.hasSelection ? undefined : "gray.500"}
+              _hover={contextMenu.hasSelection ? { backgroundColor: contextMenuHover } : undefined}
+              onClick={() => void copySelection()}
+              disabled={!contextMenu.hasSelection}>
+              Copy
+            </Box>
+          </Box>
+        </Portal>
+      )}
     </Box>
   )
 })

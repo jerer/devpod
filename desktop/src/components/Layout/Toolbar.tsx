@@ -13,7 +13,7 @@ export function Toolbar({ ...boxProps }: BoxProps) {
     <Grid
       alignContent="center"
       templateRows="1fr"
-      templateColumns="minmax(auto, 18rem) 3fr fit-content(15rem)"
+      templateColumns="minmax(auto, 24rem) 3fr fit-content(15rem)"
       width="full"
       paddingX="4"
       borderBottomColor={borderColor}
