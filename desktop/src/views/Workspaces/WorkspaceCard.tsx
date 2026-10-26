@@ -84,6 +84,7 @@ export function WorkspaceCard({ workspaceID, isSelected, onSelectionChange }: TW
   const changeOptionsModalBodyRef = useRef<HTMLDivElement>(null)
   const settings = useSettings()
   const [forceDelete, setForceDelete] = useState<boolean>(false)
+  const [localOnlyDelete, setLocalOnlyDelete] = useState<boolean>(false)
   const navigate = useNavigate()
   const { ides, defaultIDE } = useIDEs()
   const {
@@ -266,8 +267,18 @@ export function WorkspaceCard({ workspaceID, isSelected, onSelectionChange }: TW
             Deleting the workspace will erase all state. Are you sure you want to delete{" "}
             {workspace.data.id}?
             <Box marginTop={"2.5"}>
-              <Checkbox checked={forceDelete} onChange={(e) => setForceDelete(e.target.checked)}>
+              <Checkbox
+                isDisabled={localOnlyDelete}
+                checked={forceDelete}
+                onChange={(e) => setForceDelete(e.target.checked)}>
                 Force Delete the Workspace
+              </Checkbox>
+            </Box>
+            <Box marginTop={"2.5"}>
+              <Checkbox
+                checked={localOnlyDelete}
+                onChange={(e) => setLocalOnlyDelete(e.target.checked)}>
+                Delete local workspace only (keep remote resources)
               </Checkbox>
             </Box>
           </ModalBody>
@@ -277,7 +288,7 @@ export function WorkspaceCard({ workspaceID, isSelected, onSelectionChange }: TW
               <Button
                 colorScheme={"red"}
                 onClick={async () => {
-                  workspace.remove(forceDelete)
+                  workspace.remove(forceDelete, localOnlyDelete)
                   onDeleteClose()
                 }}>
                 Delete

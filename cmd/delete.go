@@ -18,6 +18,8 @@ import (
 type DeleteCmd struct {
 	*flags.GlobalFlags
 	client2.DeleteOptions
+
+	LocalOnly bool
 }
 
 // NewDeleteCmd creates a new command
@@ -47,6 +49,7 @@ func NewDeleteCmd(flags *flags.GlobalFlags) *cobra.Command {
 	deleteCmd.Flags().BoolVar(&cmd.IgnoreNotFound, "ignore-not-found", false, "Treat \"workspace not found\" as a successful delete")
 	deleteCmd.Flags().StringVar(&cmd.GracePeriod, "grace-period", "", "The amount of time to give the command to delete the workspace")
 	deleteCmd.Flags().BoolVar(&cmd.Force, "force", false, "Delete workspace even if it is not found remotely anymore")
+	deleteCmd.Flags().BoolVar(&cmd.LocalOnly, "local-only", false, "Delete only the local workspace configuration and keep remote resources")
 	return deleteCmd
 }
 
@@ -66,7 +69,7 @@ func (cmd *DeleteCmd) Run(ctx context.Context, devPodConfig *config.Config, args
 			}
 
 			return fmt.Errorf("couldn't find workspace %s", args[0])
-		} else if !cmd.Force {
+		} else if !cmd.Force && !cmd.LocalOnly {
 			log.Default.Errorf("cannot delete workspace because there was an error loading the workspace. Run with --force to ignore this error")
 			return err
 		}
@@ -84,8 +87,20 @@ func (cmd *DeleteCmd) Run(ctx context.Context, devPodConfig *config.Config, args
 		return nil
 	}
 
-	// skip deletion if imported
 	workspaceConfig := client.WorkspaceConfig()
+
+	// only delete the local workspace configuration
+	if cmd.LocalOnly {
+		err = clientimplementation.DeleteWorkspaceFolder(client.Context(), client.Workspace(), workspaceConfig.SSHConfigPath, log.Default)
+		if err != nil {
+			return err
+		}
+
+		log.Default.Donef("Successfully deleted local workspace '%s' without deleting remote resources", client.Workspace())
+		return nil
+	}
+
+	// skip deletion if imported
 	if !cmd.Force && workspaceConfig.Imported {
 		// delete workspace folder
 		err = clientimplementation.DeleteWorkspaceFolder(devPodConfig.DefaultContext, client.Workspace(), workspaceConfig.SSHConfigPath, log.Default)

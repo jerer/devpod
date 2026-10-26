@@ -179,10 +179,11 @@ export class WorkspacesClient implements TDebuggable {
 
   public async remove(
     force: boolean,
+    localOnly: boolean,
     listener: TStreamEventListenerFn | undefined,
     ctx: TWorkspaceClientContext
   ): Promise<Result<TWorkspace["status"]>> {
-    const cmd = WorkspaceCommands.RemoveWorkspace(ctx.id, force)
+    const cmd = WorkspaceCommands.RemoveWorkspace(ctx.id, force, localOnly)
     const result = await this.execActionCmd(cmd, { ...ctx, listener, actionName: "remove" })
     if (result.err) {
       return result

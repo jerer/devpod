@@ -28,7 +28,11 @@ export type TWorkspaceResult = Readonly<{
     onStream?: TStreamEventListenerFn
   ) => TActionID
   stop: (onStream?: TStreamEventListenerFn) => TActionID | undefined
-  remove: (force: boolean, onStream?: TStreamEventListenerFn) => TActionID | undefined
+  remove: (
+    force: boolean,
+    localOnly?: boolean,
+    onStream?: TStreamEventListenerFn
+  ) => TActionID | undefined
   rebuild: (onStream?: TStreamEventListenerFn) => TActionID | undefined
   reset: (onStream?: TStreamEventListenerFn) => TActionID | undefined
   checkStatus: (onStream?: TStreamEventListenerFn) => TActionID | undefined
@@ -202,12 +206,12 @@ export function useWorkspace(workspaceID: TWorkspaceID | undefined): TWorkspaceR
   )
 
   const remove = useCallback<TWorkspaceResult["remove"]>(
-    (force, onStream) => {
+    (force, localOnly, onStream) => {
       if (workspaceID === undefined) {
         return
       }
 
-      return removeWorkspaceAction({ force, workspaceID, onStream, streamID: viewID })
+      return removeWorkspaceAction({ force, localOnly, workspaceID, onStream, streamID: viewID })
     },
     [viewID, workspaceID]
   )
@@ -318,18 +322,20 @@ type TRemoveWorkspaceActionArgs = Readonly<{
   workspaceID: TWorkspaceID
   streamID: TStreamID
   force: boolean
+  localOnly?: boolean
 }>
 export function removeWorkspaceAction({
   workspaceID,
   onStream,
   streamID,
   force,
+  localOnly,
 }: TRemoveWorkspaceActionArgs): TActionObj["id"] {
   return devPodStore.startAction({
     actionName: "remove",
     workspaceID,
     actionFn: async (ctx) => {
-      const result = await client.workspaces.remove(force, onStream, {
+      const result = await client.workspaces.remove(force, localOnly ?? false, onStream, {
         id: workspaceID,
         actionID: ctx.id,
         streamID,

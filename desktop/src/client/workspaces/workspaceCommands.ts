@@ -27,6 +27,7 @@ import {
   DEVPOD_FLAG_IDE,
   DEVPOD_FLAG_JSON_LOG_OUTPUT,
   DEVPOD_FLAG_JSON_OUTPUT,
+  DEVPOD_FLAG_LOCAL_ONLY,
   DEVPOD_FLAG_MACHINE_REUSE,
   DEVPOD_FLAG_OUTPUT_FILE,
   DEVPOD_FLAG_PREBUILD_REPOSITORY,
@@ -176,10 +177,13 @@ export class WorkspaceCommands {
     ])
   }
 
-  static RemoveWorkspace(id: TWorkspaceID, force?: boolean) {
+  static RemoveWorkspace(id: TWorkspaceID, force?: boolean, localOnly?: boolean) {
     const args = [DEVPOD_COMMAND_DELETE, id, DEVPOD_FLAG_JSON_LOG_OUTPUT]
     if (force) {
       args.push(DEVPOD_FLAG_FORCE)
+    }
+    if (localOnly) {
+      args.push(DEVPOD_FLAG_LOCAL_ONLY)
     }
 
     return WorkspaceCommands.newCommand(args)

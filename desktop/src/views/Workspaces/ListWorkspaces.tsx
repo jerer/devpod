@@ -54,6 +54,7 @@ export function ListWorkspaces() {
   const workspaces = useWorkspaces()
   const [selectedWorkspaces, setSelectedWorkspaces] = useState(new Set<string>())
   const [forceDelete, setForceDelete] = useState(false)
+  const [localOnlyDelete, setLocalOnlyDelete] = useState(false)
   const {
     isOpen: isDeleteOpen,
     onOpen: handleDeleteClicked,
@@ -158,6 +159,7 @@ export function ListWorkspaces() {
         workspaceID: w.id,
         streamID: viewID,
         force: forceDelete,
+        localOnly: localOnlyDelete,
       })
     }
   }
@@ -338,8 +340,18 @@ export function ListWorkspaces() {
             Deleting the workspaces will erase all state. Are you sure you want to delete the
             selected workspaces?
             <Box marginTop={"2.5"}>
-              <Checkbox checked={forceDelete} onChange={(e) => setForceDelete(e.target.checked)}>
+              <Checkbox
+                isDisabled={localOnlyDelete}
+                checked={forceDelete}
+                onChange={(e) => setForceDelete(e.target.checked)}>
                 Force Delete
+              </Checkbox>
+            </Box>
+            <Box marginTop={"2.5"}>
+              <Checkbox
+                checked={localOnlyDelete}
+                onChange={(e) => setLocalOnlyDelete(e.target.checked)}>
+                Delete local workspaces only (keep remote resources)
               </Checkbox>
             </Box>
           </ModalBody>
