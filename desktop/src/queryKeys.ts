@@ -21,7 +21,6 @@ export const QueryKeys = {
   provider(id: TProviderID): string[] {
     return [...QueryKeys.PROVIDERS, id]
   },
-  IS_CLI_INSTALLED: ["isCliInstalled"],
   providerOptions(id: TProviderID): string[] {
     return [...QueryKeys.provider(id), "options"]
   },

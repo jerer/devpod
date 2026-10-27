@@ -21,7 +21,6 @@
     {
       "identifier": "shell:allow-execute",
       "allow": [
-        {"name": "devpod", "cmd": "devpod", "args": ["version"]},
         {"name": "/app/bin/devpod-cli", "cmd": "/app/bin/devpod-cli", "args": true},
         {"name": "devpod-cli", "sidecar": true, "args": true},
         {"name": "bin/devpod-cli", "sidecar": true, "args": true}

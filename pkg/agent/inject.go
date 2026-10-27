@@ -77,10 +77,12 @@ func InjectAgentAndExecute(
 	// For dev builds there's no matching release to download, so only install if binary is absent.
 	// For release builds, check the version so outdated binaries are replaced.
 	var versionCheck string
-	if version.GetVersion() == version.DevVersion {
+	expectedVersion := version.GetVersion()
+	if expectedVersion == version.DevVersion {
 		versionCheck = fmt.Sprintf(`[ ! -f %s ]`, remoteAgentPath)
+		expectedVersion = ""
 	} else {
-		versionCheck = fmt.Sprintf(`[ "$(%s version 2>/dev/null || echo 'false')" != "%s" ]`, remoteAgentPath, version.GetVersion())
+		versionCheck = fmt.Sprintf(`[ "$(%s version 2>/dev/null || echo 'false')" != "%s" ]`, remoteAgentPath, expectedVersion)
 	}
 
 	// install devpod into the target
@@ -100,6 +102,7 @@ func InjectAgentAndExecute(
 			AgentRemotePath:     remoteAgentPath,
 			DownloadURLs:        inject.NewDownloadURLs(downloadURL),
 			ExistsCheck:         versionCheck,
+			ExpectedVersion:     expectedVersion,
 			PreferAgentDownload: true,
 			ShouldChmodPath:     true,
 		}

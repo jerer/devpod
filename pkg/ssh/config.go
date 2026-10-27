@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/loft-sh/devpod/pkg/cli"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/scanner"
 	"github.com/mitchellh/go-homedir"
@@ -53,7 +54,7 @@ func addHost(path, host, user, context, workspace, workdir, command string, gpga
 	}
 
 	// get path to executable
-	execPath, err := os.Executable()
+	execPath, err := cli.Executable()
 	if err != nil {
 		return "", err
 	}

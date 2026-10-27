@@ -12,6 +12,7 @@ func GenerateScript(script string, params *Params) (string, error) {
 	rawCode, err := template.FillTemplate(script, map[string]string{
 		"Command":         params.Command,
 		"ExistsCheck":     params.ExistsCheck,
+		"ExpectedVersion": params.ExpectedVersion,
 		"InstallDir":      params.InstallDir(),
 		"InstallFilename": params.InstallFilename(),
 		"PreferDownload":  params.PreferDownload(),
@@ -33,6 +34,7 @@ type Params struct {
 	DownloadURLs    *DownloadURLs
 
 	ExistsCheck         string
+	ExpectedVersion     string
 	PreferAgentDownload bool
 	ShouldChmodPath     bool
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/loft-sh/devpod/cmd/flags"
 	"github.com/loft-sh/devpod/pkg/agent"
 	"github.com/loft-sh/devpod/pkg/agent/tunnelserver"
+	"github.com/loft-sh/devpod/pkg/cli"
 	client2 "github.com/loft-sh/devpod/pkg/client"
 	"github.com/loft-sh/devpod/pkg/client/clientimplementation"
 	"github.com/loft-sh/devpod/pkg/command"
@@ -202,6 +203,10 @@ func (cmd *UpCmd) Run(
 	client client2.BaseWorkspaceClient,
 	log log.Logger,
 ) error {
+	if _, err := cli.Executable(); err != nil {
+		log.Debugf("Install stable cli: %v", err)
+	}
+
 	// a reset implies a recreate
 	if cmd.Reset {
 		cmd.Recreate = true

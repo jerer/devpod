@@ -6,6 +6,7 @@ import { ArrowLeft, Plus } from "../../icons"
 import { exists } from "../../lib"
 import { Routes } from "../../routes"
 import { ImportWorkspaceButton } from "./ImportWorkspaceButton"
+import { RegisterWorkspaceButton } from "./RegisterWorkspaceButton"
 
 export function useWorkspaceTitle(): TViewTitle | null {
   const navigate = useNavigate()
@@ -35,6 +36,7 @@ export function useWorkspaceTitle(): TViewTitle | null {
         priority: "high",
         trailingAction: (
           <HStack>
+            <RegisterWorkspaceButton />
             <ImportWorkspaceButton />
             <Button
               size="sm"

@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"github.com/loft-sh/devpod/cmd/flags"
+	"github.com/loft-sh/devpod/pkg/cli"
 	"github.com/loft-sh/devpod/pkg/config"
 	"github.com/loft-sh/devpod/pkg/extract"
 	"github.com/loft-sh/devpod/pkg/provider"
@@ -65,6 +66,10 @@ func NewImportCmd(flags *flags.GlobalFlags) *cobra.Command {
 
 // Run runs the command logic
 func (cmd *ImportCmd) Run(ctx context.Context, devPodConfig *config.Config, log log.Logger) error {
+	if _, err := cli.Executable(); err != nil {
+		log.Debugf("Install stable cli: %v", err)
+	}
+
 	data, err := cmd.readData()
 	if err != nil {
 		return err

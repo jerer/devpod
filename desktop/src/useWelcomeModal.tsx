@@ -1,5 +1,4 @@
 import {
-  Code,
   Heading,
   HStack,
   Link,
@@ -16,8 +15,8 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router"
 import { client } from "./client"
-import { LoftOSSBadge, Step, Steps, useInstallCLI } from "./components"
-import { Briefcase, CommandLine, DevpodWordmark } from "./icons"
+import { LoftOSSBadge, Step, Steps } from "./components"
+import { Briefcase, DevpodWordmark } from "./icons"
 import { Routes } from "./routes"
 
 const IS_FIRST_VISIT_KEY = "devpod-is-first-visit"
@@ -26,12 +25,6 @@ export function useWelcomeModal() {
   const navigate = useNavigate()
   const { isOpen, onClose, onOpen } = useDisclosure()
   const [isCancellable, setIsCancellable] = useState(false)
-  const {
-    badge: installCLIBadge,
-    button: installCLIButton,
-    helpText: installCLIHelpText,
-    errorMessage: installCLIErrorMessage,
-  } = useInstallCLI()
   const handleSetupFinished = useCallback(() => {
     onClose()
     navigate(Routes.WORKSPACE_CREATE)
@@ -108,39 +101,6 @@ export function useWelcomeModal() {
 
                 <Step>
                   <HStack>
-                    <CommandLine boxSize="6" />
-                    <Heading as="h1" size="lg" marginRight="2">
-                      CLI
-                    </Heading>
-                  </HStack>
-
-                  <Text>
-                    DevPod ships with a powerful CLI that allows you to create, manage and connect
-                    to your workspaces and providers. You can either{" "}
-                    <Link onClick={() => client.open("https://github.com/loft-sh/devpod/releases")}>
-                      download the standalone binary
-                    </Link>{" "}
-                    or directly add it to your <Code>$PATH</Code>.
-                    <br />
-                    <Text as="span" color="gray.500">
-                      Feel free to skip this step. You can always install the CLI from the{" "}
-                      <Code variant="decorative">Settings</Code> tab.
-                    </Text>
-                  </Text>
-                  <VStack align="start">
-                    <HStack>
-                      {installCLIButton}
-                      {installCLIBadge}
-                    </HStack>
-                    <Text color="gray.500" fontSize="sm">
-                      {installCLIHelpText}
-                    </Text>
-                  </VStack>
-                  {installCLIErrorMessage}
-                </Step>
-
-                <Step>
-                  <HStack>
                     <Briefcase boxSize="6" />
                     <Heading as="h1" size="lg" marginRight="2">
                       Workspaces
@@ -160,16 +120,7 @@ export function useWelcomeModal() {
         </ModalContent>
       </Modal>
     )
-  }, [
-    handleSetupFinished,
-    installCLIBadge,
-    installCLIButton,
-    installCLIErrorMessage,
-    installCLIHelpText,
-    isCancellable,
-    isOpen,
-    onClose,
-  ])
+  }, [handleSetupFinished, isCancellable, isOpen, onClose])
 
   const show = useCallback(
     ({ cancellable = false }: Readonly<{ cancellable?: boolean }>) => {

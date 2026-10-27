@@ -1,5 +1,6 @@
 import { exists, Result, Return } from "../../lib"
 import {
+  TProviderID,
   TWorkspace,
   TWorkspaceID,
   TWorkspaceStartConfig,
@@ -15,6 +16,7 @@ import {
   DEVPOD_COMMAND_HELPER,
   DEVPOD_COMMAND_IMPORT,
   DEVPOD_COMMAND_LIST,
+  DEVPOD_COMMAND_REGISTER,
   DEVPOD_COMMAND_STATUS,
   DEVPOD_COMMAND_STOP,
   DEVPOD_COMMAND_UP,
@@ -23,12 +25,15 @@ import {
   DEVPOD_FLAG_DEVCONTAINER_PATH,
   DEVPOD_FLAG_EXCLUDE_PROVIDER,
   DEVPOD_FLAG_FORCE,
+  DEVPOD_FLAG_GIT_BRANCH,
+  DEVPOD_FLAG_GIT_URL,
   DEVPOD_FLAG_ID,
   DEVPOD_FLAG_IDE,
   DEVPOD_FLAG_JSON_LOG_OUTPUT,
   DEVPOD_FLAG_JSON_OUTPUT,
   DEVPOD_FLAG_LOCAL_ONLY,
   DEVPOD_FLAG_MACHINE_REUSE,
+  DEVPOD_FLAG_NAMESPACE,
   DEVPOD_FLAG_OUTPUT_FILE,
   DEVPOD_FLAG_PREBUILD_REPOSITORY,
   DEVPOD_FLAG_PROVIDER,
@@ -204,6 +209,28 @@ export class WorkspaceCommands {
       toFlagArg(DEVPOD_FLAG_DATA_FILE, dataFile),
       DEVPOD_FLAG_MACHINE_REUSE,
       DEVPOD_FLAG_PROVIDER_REUSE,
+    ])
+  }
+
+  static RegisterK8sWorkspace(
+    podName: string,
+    namespace: string,
+    providerID: TProviderID,
+    gitURL: string,
+    gitBranch: string
+  ) {
+    const maybeGitURL =
+      exists(gitURL) && gitURL !== "" ? [toFlagArg(DEVPOD_FLAG_GIT_URL, gitURL)] : []
+    const maybeGitBranch =
+      exists(gitBranch) && gitBranch !== "" ? [toFlagArg(DEVPOD_FLAG_GIT_BRANCH, gitBranch)] : []
+
+    return WorkspaceCommands.newCommand([
+      DEVPOD_COMMAND_REGISTER,
+      podName,
+      toFlagArg(DEVPOD_FLAG_NAMESPACE, namespace),
+      toFlagArg(DEVPOD_FLAG_PROVIDER, providerID),
+      ...maybeGitURL,
+      ...maybeGitBranch,
     ])
   }
 

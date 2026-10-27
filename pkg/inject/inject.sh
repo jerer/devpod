@@ -143,7 +143,12 @@ if {{ .ExistsCheck }}; then
   fi
 
   if {{ .ExistsCheck }}; then
+    {{- if .ExpectedVersion }}
+    actual_version="$($INSTALL_PATH version 2>/dev/null || echo 'unknown')"
+    >&2 echo "Error: failed to install devpod: version mismatch (downloaded: ${actual_version}, expected: {{ .ExpectedVersion }})"
+    {{- else }}
     >&2 echo Error: failed to install devpod
+    {{- end }}
     exit 1
   fi
 fi

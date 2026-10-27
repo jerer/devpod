@@ -218,6 +218,31 @@ export class WorkspacesClient implements TDebuggable {
     return Return.Ok()
   }
 
+  public async register(
+    podName: string,
+    namespace: string,
+    providerID: string,
+    gitURL: string,
+    gitBranch: string
+  ): Promise<ResultError> {
+    const result = await WorkspaceCommands.RegisterK8sWorkspace(
+      podName,
+      namespace,
+      providerID,
+      gitURL,
+      gitBranch
+    ).run()
+    if (result.err) {
+      return result
+    }
+
+    if (!isOk(result.val)) {
+      return Return.Failed(`Failed to register workspace: ${result.val.stderr.trim()}`)
+    }
+
+    return Return.Ok()
+  }
+
   public async checkStatus(
     listener: TStreamEventListenerFn | undefined,
     ctx: TWorkspaceClientContext

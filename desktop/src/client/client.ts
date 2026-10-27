@@ -10,7 +10,6 @@ import { copyFile } from "@tauri-apps/plugin-fs"
 import { arch, platform, type Arch, type Platform } from "@tauri-apps/plugin-os"
 import { openPath, openUrl } from "@tauri-apps/plugin-opener"
 import { exit } from "@tauri-apps/plugin-process"
-import { Command as ShellCommand } from "@tauri-apps/plugin-shell"
 import { TSettings } from "../contexts"
 import { Result, Return, isError, noop } from "../lib"
 import { TCommunityContributions, TUnsubscribeFn } from "../types"
@@ -191,50 +190,8 @@ class Client {
     return copyFile(src, dest)
   }
 
-  public async installCLI(force: boolean = false): Promise<Result<void>> {
-    try {
-      await invoke("install_cli", { force })
-
-      return Return.Ok()
-    } catch (e) {
-      if (isError(e)) {
-        return Return.Failed(e.message)
-      }
-
-      if (typeof e === "string") {
-        return Return.Failed(`Failed to install CLI: ${e}`)
-      }
-
-      return Return.Failed("Unable to install CLI")
-    }
-  }
-
   public async getEnv(name: string): Promise<string> {
     return invoke<string>("get_env", { name })
-  }
-
-  public async isCLIInstalled(): Promise<Result<boolean>> {
-    try {
-      // we're in a flatpak, we need to check in other paths.
-      if (import.meta.env.TAURI_IS_FLATPAK === "true") {
-        const home_dir = await this.getEnv("HOME")
-        // this will throw if doesn't exist
-        const exists = await invoke<boolean>("file_exists", {
-          filepath: home_dir + "/.local/bin/devpod",
-        })
-
-        return Return.Value(exists)
-      }
-
-      const result = await ShellCommand.create("devpod", ["version"]).execute()
-      if (result.code !== 0) {
-        return Return.Value(false)
-      }
-
-      return Return.Value(true)
-    } catch {
-      return Return.Value(false)
-    }
   }
 
   public open(link: string): void {

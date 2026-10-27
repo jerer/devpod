@@ -25,7 +25,7 @@ import {
 import { ReactNode } from "react"
 import { HiMagnifyingGlassPlus } from "react-icons/hi2"
 import { client } from "../../client"
-import { ToolbarTitle, useInstallCLI } from "../../components"
+import { ToolbarTitle } from "../../components"
 import { TSettings, useChangeSettings } from "../../contexts"
 import { getIDEDisplayName, isMacOS } from "../../lib"
 import { useWelcomeModal } from "../../useWelcomeModal"
@@ -80,23 +80,9 @@ function GeneralSettings() {
   const { modal: welcomeModal, show: showWelcomeModal } = useWelcomeModal()
   const { input: agentURLInput, helpText: agentURLHelpText } = useAgentURLOption()
   const { input: proxyInput, helpText: proxyHelpText } = useProxyOptions()
-  const {
-    badge: installCLIBadge,
-    button: installCLIButton,
-    helpText: installCLIHelpText,
-    errorMessage: installCLIErrorMessage,
-  } = useInstallCLI()
 
   return (
     <>
-      <SettingSection title="CLI" description={installCLIHelpText}>
-        <HStack>
-          {installCLIButton}
-          {installCLIErrorMessage}
-          {installCLIBadge}
-        </HStack>
-      </SettingSection>
-
       <SettingSection
         title="Debug mode"
         description={
