@@ -1,4 +1,5 @@
 import {
+  Box,
   Button,
   FormControl,
   FormHelperText,
@@ -38,9 +39,12 @@ export function RegisterWorkspaceButton() {
   const { isOpen, onOpen, onClose } = useDisclosure()
   const [podName, setPodName] = useState("")
   const [namespace, setNamespace] = useState("")
+  const [workspaceID, setWorkspaceID] = useState("")
   const [providerID, setProviderID] = useState("")
   const [gitURL, setGitURL] = useState("")
   const [gitBranch, setGitBranch] = useState("")
+  const [warnings, setWarnings] = useState<string[]>([])
+  const [isChecking, setIsChecking] = useState(false)
 
   const kubernetesProviders = useMemo(
     () =>
@@ -52,7 +56,7 @@ export function RegisterWorkspaceButton() {
   )
 
   const { mutate: handleRegister, isLoading } = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (force: boolean) => {
       if (!providerID) {
         throw new Error("No Kubernetes provider configured")
       }
@@ -65,8 +69,10 @@ export function RegisterWorkspaceButton() {
           podName.trim(),
           namespace.trim(),
           providerID,
+          workspaceID.trim(),
           gitURL.trim(),
-          gitBranch.trim()
+          gitBranch.trim(),
+          force
         )
       ).unwrap()
 
@@ -93,14 +99,73 @@ export function RegisterWorkspaceButton() {
     },
   })
 
+  const handleSubmit = async () => {
+    setWarnings([])
+
+    if (!providerID) {
+      toast({
+        title: "Failed to register workspace: No Kubernetes provider configured",
+        status: "error",
+        duration: 10_000,
+        isClosable: true,
+      })
+      return
+    }
+    if (!podName.trim()) {
+      toast({
+        title: "Failed to register workspace: Pod name is required",
+        status: "error",
+        duration: 10_000,
+        isClosable: true,
+      })
+      return
+    }
+
+    setIsChecking(true)
+    const result = await client.workspaces.checkRegister(
+      podName.trim(),
+      namespace.trim(),
+      providerID,
+      workspaceID.trim(),
+      gitURL.trim(),
+      gitBranch.trim()
+    )
+    setIsChecking(false)
+
+    if (result.err) {
+      toast({
+        title: result.val.message,
+        status: "error",
+        duration: 30_000,
+        isClosable: true,
+      })
+      return
+    }
+
+    if (result.val.configDiffers) {
+      setWarnings(
+        result.val.warnings && result.val.warnings.length > 0
+          ? [...result.val.warnings]
+          : [
+              "The pod was created with a different configuration and its container will be recreated on the next start.",
+            ]
+      )
+      return
+    }
+
+    handleRegister(false)
+  }
+
   const handleOpen = () => {
     const defaultProvider =
       kubernetesProviders.find(([, provider]) => provider.default)?.[0] ??
       kubernetesProviders[0]?.[0] ??
       ""
     setPodName("")
+    setWorkspaceID("")
     setGitURL("")
     setGitBranch("")
+    setWarnings([])
     setProviderID(defaultProvider)
     setNamespace(getProviderNamespace(providers?.[defaultProvider]))
     onOpen()
@@ -127,7 +192,7 @@ export function RegisterWorkspaceButton() {
           <form
             onSubmit={(event) => {
               event.preventDefault()
-              handleRegister()
+              void handleSubmit()
             }}>
             <ModalHeader>Register existing Kubernetes workspace</ModalHeader>
             <ModalCloseButton />
@@ -171,6 +236,19 @@ export function RegisterWorkspaceButton() {
                 </FormControl>
 
                 <FormControl>
+                  <FormLabel>Workspace ID</FormLabel>
+                  <Input
+                    value={workspaceID}
+                    placeholder="<workspace-id>"
+                    onChange={(event) => setWorkspaceID(event.target.value)}
+                  />
+                  <FormHelperText>
+                    Optional. Overrides the workspace ID derived from the pod. Use this if a
+                    workspace with the derived ID already exists locally.
+                  </FormHelperText>
+                </FormControl>
+
+                <FormControl>
                   <FormLabel>Namespace</FormLabel>
                   <Input
                     value={namespace}
@@ -207,19 +285,45 @@ export function RegisterWorkspaceButton() {
                     Optional. Defaults to the repository's default branch.
                   </FormHelperText>
                 </FormControl>
+
+                {warnings.length > 0 && (
+                  <Box
+                    width="full"
+                    borderWidth="1px"
+                    borderColor="orange.400"
+                    backgroundColor="orange.50"
+                    borderRadius="md"
+                    padding="3">
+                    <Text fontWeight="semibold" color="orange.700" marginBottom="1">
+                      Container will be recreated
+                    </Text>
+                    <Text fontSize="sm" color="orange.700" whiteSpace="pre-line">
+                      {warnings.join("\n")}
+                    </Text>
+                  </Box>
+                )}
               </VStack>
             </ModalBody>
             <ModalFooter>
               <Button variant="ghost" marginRight="2" onClick={onClose}>
                 Cancel
               </Button>
-              <Button
-                type="submit"
-                variant="primary"
-                isLoading={isLoading}
-                isDisabled={kubernetesProviders.length === 0 || !podName.trim()}>
-                Register
-              </Button>
+              {warnings.length > 0 ? (
+                <Button
+                  variant="primary"
+                  isLoading={isLoading}
+                  onClick={() => handleRegister(true)}>
+                  Register anyway
+                </Button>
+              ) : (
+                <Button
+                  type="submit"
+                  variant="primary"
+                  isLoading={isChecking || isLoading}
+                  isDisabled={kubernetesProviders.length === 0 || !podName.trim()}>
+                  Register
+                </Button>
+              )}
             </ModalFooter>
           </form>
         </ModalContent>

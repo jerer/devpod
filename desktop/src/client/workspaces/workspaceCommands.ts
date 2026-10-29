@@ -20,6 +20,7 @@ import {
   DEVPOD_COMMAND_STATUS,
   DEVPOD_COMMAND_STOP,
   DEVPOD_COMMAND_UP,
+  DEVPOD_FLAG_CHECK,
   DEVPOD_FLAG_DATA_FILE,
   DEVPOD_FLAG_DEBUG,
   DEVPOD_FLAG_DEVCONTAINER_PATH,
@@ -43,6 +44,7 @@ import {
   DEVPOD_FLAG_RESET,
   DEVPOD_FLAG_SOURCE,
   DEVPOD_FLAG_TIMEOUT,
+  DEVPOD_FLAG_WORKSPACE_ID,
 } from "../constants"
 
 type TRawWorkspaces = readonly (Omit<TWorkspace, "status" | "id"> &
@@ -216,21 +218,33 @@ export class WorkspaceCommands {
     podName: string,
     namespace: string,
     providerID: TProviderID,
+    workspaceID: string,
     gitURL: string,
-    gitBranch: string
+    gitBranch: string,
+    force = false,
+    check = false
   ) {
+    const maybeWorkspaceID =
+      exists(workspaceID) && workspaceID !== ""
+        ? [toFlagArg(DEVPOD_FLAG_WORKSPACE_ID, workspaceID)]
+        : []
     const maybeGitURL =
       exists(gitURL) && gitURL !== "" ? [toFlagArg(DEVPOD_FLAG_GIT_URL, gitURL)] : []
     const maybeGitBranch =
       exists(gitBranch) && gitBranch !== "" ? [toFlagArg(DEVPOD_FLAG_GIT_BRANCH, gitBranch)] : []
+    const maybeForce = force ? [DEVPOD_FLAG_FORCE] : []
+    const maybeCheck = check ? [DEVPOD_FLAG_CHECK] : []
 
     return WorkspaceCommands.newCommand([
       DEVPOD_COMMAND_REGISTER,
       podName,
       toFlagArg(DEVPOD_FLAG_NAMESPACE, namespace),
       toFlagArg(DEVPOD_FLAG_PROVIDER, providerID),
+      ...maybeWorkspaceID,
       ...maybeGitURL,
       ...maybeGitBranch,
+      ...maybeForce,
+      ...maybeCheck,
     ])
   }
 

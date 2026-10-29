@@ -24,6 +24,11 @@ type TWorkspaceClientContext = Readonly<{
   streamID: TStreamID
 }>
 
+export type TRegisterWorkspaceCheck = Readonly<{
+  configDiffers: boolean
+  warnings?: readonly string[]
+}>
+
 export class WorkspacesClient implements TDebuggable {
   private readonly commandCache = new CommandCache()
 
@@ -222,15 +227,19 @@ export class WorkspacesClient implements TDebuggable {
     podName: string,
     namespace: string,
     providerID: string,
+    workspaceID: string,
     gitURL: string,
-    gitBranch: string
+    gitBranch: string,
+    force = false
   ): Promise<ResultError> {
     const result = await WorkspaceCommands.RegisterK8sWorkspace(
       podName,
       namespace,
       providerID,
+      workspaceID,
       gitURL,
-      gitBranch
+      gitBranch,
+      force
     ).run()
     if (result.err) {
       return result
@@ -241,6 +250,39 @@ export class WorkspacesClient implements TDebuggable {
     }
 
     return Return.Ok()
+  }
+
+  public async checkRegister(
+    podName: string,
+    namespace: string,
+    providerID: string,
+    workspaceID: string,
+    gitURL: string,
+    gitBranch: string
+  ): Promise<Result<TRegisterWorkspaceCheck>> {
+    const result = await WorkspaceCommands.RegisterK8sWorkspace(
+      podName,
+      namespace,
+      providerID,
+      workspaceID,
+      gitURL,
+      gitBranch,
+      false,
+      true
+    ).run()
+    if (result.err) {
+      return result
+    }
+
+    if (!isOk(result.val)) {
+      return Return.Failed(`Failed to check workspace registration: ${result.val.stderr.trim()}`)
+    }
+
+    try {
+      return Return.Value(JSON.parse(result.val.stdout) as TRegisterWorkspaceCheck)
+    } catch (error) {
+      return Return.Failed(`Failed to parse workspace registration check: ${error}`)
+    }
   }
 
   public async checkStatus(
