@@ -13,7 +13,6 @@ mod get_env;
 mod log_message;
 mod logging;
 mod providers;
-mod server;
 mod settings;
 mod system_tray;
 mod ui_messages;
@@ -40,8 +39,6 @@ pub struct AppState {
     community_contributions: Arc<Mutex<CommunityContributions>>,
     ui_messages: Sender<UiMessage>,
 }
-// TODO: build localhost http server
-// should have a /pro/setup endpoint and send the same UI message as the custom protocol
 
 fn main() -> anyhow::Result<()> {
     // https://unix.stackexchange.com/questions/82620/gui-apps-dont-inherit-path-from-parent-console-apps
@@ -99,13 +96,6 @@ fn main() -> anyhow::Result<()> {
         community_contributions::setup(app.state());
         action_logs::setup(app.handle())?;
         custom_protocol.setup(app.handle().clone());
-
-        let app_handle = app.handle().clone();
-        tauri::async_runtime::spawn(async move {
-            if let Err(err) = server::setup(&app_handle).await {
-                error!("Failed to start server: {}", err);
-            }
-        });
 
         let app_handle = app.handle().clone();
         tauri::async_runtime::spawn(async move {

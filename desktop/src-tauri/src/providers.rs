@@ -1,9 +1,7 @@
-use crate::commands::delete_pro_instance::DeleteProInstanceCommand;
-use crate::commands::list_pro_instances::{ListProInstancesCommand, ProInstance};
 use crate::commands::{delete_provider::DeleteProviderCommand, DevpodCommandConfig};
 use crate::util::with_data_store;
 use crate::AppHandle;
-use log::{debug, error, info, warn};
+use log::{debug, info};
 
 pub fn check_dangling_provider(app_handle: &AppHandle) {
     let dangling_provider_key = "danglingProviders"; // WARN: needs to match the key defined in typescript
@@ -33,18 +31,7 @@ pub fn check_dangling_provider(app_handle: &AppHandle) {
             dangling_providers.join(", ")
         );
 
-        let pro_instances = match ListProInstancesCommand::new().exec(app_handle) {
-            Ok(pro_instances) => pro_instances,
-            Err(err) => {
-                error!("Failed to list pro instances, {}", err);
-                vec![]
-            }
-        };
-
         for dangling_provider in dangling_providers.iter() {
-            // Make sure we clean up accompanying pro instances
-            check_pro_instances(app_handle, &pro_instances, dangling_provider);
-
             if DeleteProviderCommand::new(dangling_provider.clone())
                 .exec(app_handle)
                 .is_ok()
@@ -60,32 +47,4 @@ pub fn check_dangling_provider(app_handle: &AppHandle) {
 
         Ok(())
     });
-}
-
-fn check_pro_instances(
-    app_handle: &AppHandle,
-    pro_instances: &Vec<ProInstance>,
-    dangling_provider: &String,
-) {
-    if let Some(pro_instance) = pro_instances
-        .iter()
-        .find(|pro_instance| pro_instance.id() == Some(dangling_provider))
-    {
-        let pro_id = match pro_instance.id() {
-            Some(pro_id) => pro_id,
-            None => {
-                warn!("Found pro instance without id, skipping");
-                return;
-            }
-        };
-        info!(
-            "Found dangling provider {} matching pro instance {}",
-            dangling_provider, pro_id
-        );
-
-        match DeleteProInstanceCommand::new(pro_id.to_string()).exec(app_handle) {
-            Ok(_) => info!("Successfully deleted pro instance {}", pro_id),
-            Err(err) => error!("Failed to delete pro instance {}, {}", pro_id, err),
-        }
-    }
 }

@@ -67,7 +67,7 @@ func GetBinaries(context string, config *provider2.ProviderConfig) (map[string]s
 	return GetBinariesFrom(config, binariesDir)
 }
 
-func DownloadBinaries(binaries map[string][]*provider2.ProviderBinary, targetFolder string, log log.Logger) (map[string]string, error) {
+func DownloadBinaries(binaries map[string][]*provider2.ProviderBinary, providerName, targetFolder string, log log.Logger) (map[string]string, error) {
 	retBinaries := map[string]string{}
 	for binaryName, binaryLocations := range binaries {
 		for _, binary := range binaryLocations {
@@ -78,7 +78,7 @@ func DownloadBinaries(binaries map[string][]*provider2.ProviderBinary, targetFol
 			// check if binary is correct
 			targetFolder := filepath.Join(targetFolder, strings.ToLower(binaryName))
 			binaryPath := getBinaryPath(binary, targetFolder)
-			if verifyBinary(binaryPath, binary.Checksum) || fromCache(binary, targetFolder, log) {
+			if verifyBinary(binaryPath, binary.Checksum) || fromCache(providerName, binary, targetFolder, log) {
 				retBinaries[binaryName] = binaryPath
 				continue
 			}
@@ -103,7 +103,7 @@ func DownloadBinaries(binaries map[string][]*provider2.ProviderBinary, targetFol
 					}
 				}
 
-				toCache(binary, binaryPath, log)
+				toCache(providerName, binary, binaryPath, log)
 				retBinaries[binaryName] = binaryPath
 				break
 			}
@@ -119,12 +119,12 @@ func DownloadBinaries(binaries map[string][]*provider2.ProviderBinary, targetFol
 	return retBinaries, nil
 }
 
-func toCache(binary *provider2.ProviderBinary, binaryPath string, log log.Logger) {
+func toCache(providerName string, binary *provider2.ProviderBinary, binaryPath string, log log.Logger) {
 	if !isRemotePath(binary.Path) {
 		return
 	}
 
-	cachedBinaryPath := getCachedBinaryPath(binary.Path)
+	cachedBinaryPath := getCachedBinaryPath(providerName, binary.Path)
 	err := os.MkdirAll(filepath.Dir(cachedBinaryPath), 0777)
 	if err != nil {
 		return
@@ -137,13 +137,13 @@ func toCache(binary *provider2.ProviderBinary, binaryPath string, log log.Logger
 	}
 }
 
-func fromCache(binary *provider2.ProviderBinary, targetFolder string, log log.Logger) bool {
+func fromCache(providerName string, binary *provider2.ProviderBinary, targetFolder string, log log.Logger) bool {
 	if !isRemotePath(binary.Path) {
 		return false
 	}
 
 	binaryPath := getBinaryPath(binary, targetFolder)
-	cachedBinaryPath := getCachedBinaryPath(binary.Path)
+	cachedBinaryPath := getCachedBinaryPath(providerName, binary.Path)
 	if !verifyBinary(cachedBinaryPath, binary.Checksum) {
 		return false
 	}
@@ -169,8 +169,13 @@ func fromCache(binary *provider2.ProviderBinary, targetFolder string, log log.Lo
 	return true
 }
 
-func getCachedBinaryPath(url string) string {
-	return filepath.Join(os.TempDir(), "devpod-binaries", hash.String(url)[:16])
+func getCachedBinaryPath(providerName, url string) string {
+	cacheDir, err := config.GetConfigDir()
+	if err != nil {
+		cacheDir = os.TempDir()
+	}
+
+	return filepath.Join(cacheDir, "providers", providerName, hash.String(url)[:16])
 }
 
 func verifyBinary(binaryPath, checksum string) bool {

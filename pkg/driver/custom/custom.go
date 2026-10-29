@@ -296,7 +296,7 @@ func ToEnvironWithBinaries(workspace *provider2.AgentWorkspaceInfo, log log.Logg
 	}
 
 	// download binaries
-	agentBinaries, err := binaries.DownloadBinaries(workspace.Agent.Binaries, binariesDir, log)
+	agentBinaries, err := binaries.DownloadBinaries(workspace.Agent.Binaries, workspace.Workspace.Provider.Name, binariesDir, log)
 	if err != nil {
 		return nil, fmt.Errorf("error downloading workspace %s binaries: %w", workspace.Workspace.ID, err)
 	}

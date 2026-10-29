@@ -15,10 +15,9 @@ import { useNavigate } from "react-router"
 import { client } from "./client"
 import { ErrorMessageBox } from "./components"
 import { WORKSPACE_SOURCE_BRANCH_DELIMITER, WORKSPACE_SOURCE_COMMIT_DELIMITER } from "./constants"
-import { startWorkspaceAction, useChangeSettings } from "./contexts"
+import { startWorkspaceAction } from "./contexts"
 import { exists } from "./lib"
 import { Routes } from "./routes"
-import { useLoginProModal } from "./views"
 
 export function useAppReady() {
   const isReadyLockRef = useRef<boolean>(false)
@@ -26,8 +25,6 @@ export function useAppReady() {
   const navigate = useNavigate()
   const toast = useToast()
   const { modal: errorModal, setFailedMessage } = useErrorModal()
-  const { modal: proLoginModal, handleOpenLogin: handleProLogin } = useLoginProModal()
-  const { set: setSetting } = useChangeSettings()
 
   useEffect(() => {
     window.addEventListener("contextmenu", (e) => {
@@ -66,84 +63,6 @@ export function useAppReady() {
           .map(([key, value]) => `${key}: ${value}`)
           .join("\n")
         setFailedMessage(message)
-
-        return
-      }
-
-      if (event.type === "SetupPro") {
-        // check if host is already taken. If not, set window to foreground and pass evnet to pro login handler
-        const proInstances = await client.pro.listAll()
-        if (proInstances.err) {
-          return
-        }
-
-        const existingInstance = proInstances.val.find((i) => i.host === event.host)
-        if (existingInstance) {
-          // only warn in console, don't show modal
-          console.warn("Pro instance already exists", existingInstance)
-
-          return
-        }
-
-        const data: Parameters<typeof handleProLogin>[0] = {
-          host: event.host,
-          suggestedOptions: {},
-        }
-        if (event.accessKey) {
-          data.accessKey = event.accessKey
-        }
-        if (event.options) {
-          data.suggestedOptions = event.options
-        }
-
-        await getCurrentWindow().setFocus()
-        // ensure pro is enabled
-        setSetting("experimental_devPodPro", true)
-        handleProLogin(data)
-
-        return
-      }
-
-      if (event.type === "ImportWorkspace") {
-        await getCurrentWindow().setFocus()
-        const importResult = await client.pro.importWorkspace({
-          workspaceID: event.workspace_id,
-          workspaceUID: event.workspace_uid,
-          devPodProHost: event.devpod_pro_host,
-          project: event.project,
-          options: event.options,
-        })
-        if (importResult.err) {
-          const cleanedMsg = importResult.val.message.split("\n").at(-1) ?? ""
-          setFailedMessage("Failed to import workspace: " + cleanedMsg)
-
-          return
-        }
-        const workspacesResult = await client.workspaces.listAll()
-        if (workspacesResult.err) {
-          return
-        }
-        const maybeWorkspace = workspacesResult.val.find((w) => w.id === event.workspace_id)
-        if (!maybeWorkspace) {
-          setFailedMessage("Could not find workspace after import")
-
-          return
-        }
-
-        const actionID = startWorkspaceAction({
-          workspaceID: maybeWorkspace.id,
-          streamID: viewID,
-          config: {
-            id: maybeWorkspace.id,
-            providerConfig: {
-              providerID: maybeWorkspace.provider?.name ?? undefined,
-            },
-            ideConfig: {
-              name: maybeWorkspace.ide?.name,
-            },
-          },
-        })
-        navigate(Routes.toAction(actionID))
 
         return
       }
@@ -237,7 +156,7 @@ export function useAppReady() {
         })
       )
     },
-    [handleProLogin, navigate, setFailedMessage, setSetting, toast, viewID]
+    [navigate, setFailedMessage, toast, viewID]
   )
 
   // notifies underlying layer that ui is ready for communication
@@ -262,7 +181,7 @@ export function useAppReady() {
     }
   }, [handleMessage])
 
-  return { errorModal, proLoginModal }
+  return { errorModal }
 }
 
 function useErrorModal() {

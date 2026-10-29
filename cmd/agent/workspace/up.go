@@ -163,7 +163,7 @@ func InitContentFolder(workspaceInfo *provider2.AgentWorkspaceInfo, log log.Logg
 	}
 
 	// download binaries
-	_, err = binaries.DownloadBinaries(workspaceInfo.Agent.Binaries, binariesDir, log)
+	_, err = binaries.DownloadBinaries(workspaceInfo.Agent.Binaries, workspaceInfo.Workspace.Provider.Name, binariesDir, log)
 	if err != nil {
 		_ = os.RemoveAll(workspaceInfo.ContentFolder)
 		return false, fmt.Errorf("error downloading workspace %s binaries: %w", workspaceInfo.Workspace.ID, err)

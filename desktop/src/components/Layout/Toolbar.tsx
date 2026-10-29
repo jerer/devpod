@@ -3,7 +3,6 @@ import { ReactNode, useEffect, useId } from "react"
 import { useBorderColor } from "../../Theme"
 import { useToolbar } from "../../contexts"
 import { Notifications } from "./Notifications"
-import { Pro } from "./Pro"
 
 export function Toolbar({ ...boxProps }: BoxProps) {
   const borderColor = useBorderColor()
@@ -32,7 +31,6 @@ export function Toolbar({ ...boxProps }: BoxProps) {
       </GridItem>
       <GridItem display="flex" alignItems="center" justifyContent="center">
         <Notifications />
-        <Pro />
       </GridItem>
     </Grid>
   )

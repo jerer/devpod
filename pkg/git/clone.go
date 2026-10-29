@@ -1,11 +1,12 @@
 package git
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 
+	"github.com/loft-sh/devpod/pkg/command"
 	"github.com/loft-sh/log"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
@@ -137,16 +138,22 @@ func run(ctx context.Context, args []string, extraEnv []string, log log.Logger) 
 	// we need to check the exit code to decide where the logs should go
 	if err := gitCommand.Run(); err != nil {
 		// report as error
-		if _, err2 := io.Copy(log.Writer(logrus.ErrorLevel, false), &buf); err2 != nil {
-			return err2
-		}
-		return err
+		logOutput(log, logrus.ErrorLevel, buf.Bytes())
+
+		// include the output in the error as well, so it is not lost when the
+		// logger is asynchronous and the process exits right after cloning fails
+		return command.WrapCommandError(buf.Bytes(), err)
 	}
 
 	// report as debug
-	if _, err := io.Copy(log.Writer(logrus.DebugLevel, false), &buf); err != nil {
-		return err
-	}
+	logOutput(log, logrus.DebugLevel, buf.Bytes())
 
 	return nil
+}
+
+func logOutput(log log.Logger, level logrus.Level, output []byte) {
+	scanner := bufio.NewScanner(bytes.NewReader(output))
+	for scanner.Scan() {
+		log.Print(level, scanner.Text())
+	}
 }

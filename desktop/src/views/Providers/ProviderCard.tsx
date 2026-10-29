@@ -145,10 +145,7 @@ export function ProviderCard({ id, provider, remove }: TProviderCardProps) {
                 fontWeight="regular">
                 {providerVersion}
               </Text>
-              {providerUpdate &&
-                providerUpdate.updateAvailable &&
-                providerSource &&
-                !provider.isProxyProvider && (
+              {providerUpdate && providerUpdate.updateAvailable && providerSource && (
                   <Tooltip
                     label={
                       providerUpdate.latestVersion
@@ -222,7 +219,6 @@ export function ProviderCard({ id, provider, remove }: TProviderCardProps) {
                     })
                   }
                   icon={<Icon as={HiDuplicate} boxSize="4" />}
-                  isDisabled={provider.isProxyProvider}
                 />
               </Tooltip>
             )}
@@ -234,12 +230,7 @@ export function ProviderCard({ id, provider, remove }: TProviderCardProps) {
                 icon={<Icon as={HiPencil} boxSize="4" />}
               />
             </Tooltip>
-            <Tooltip
-              label={
-                provider.isProxyProvider
-                  ? "This provider is associated with a Pro instance. Disconnecting the Pro instance will automatically delete this provider"
-                  : "Delete Provider"
-              }>
+            <Tooltip label="Delete Provider">
               <IconButton
                 aria-label="Delete Provider"
                 variant="ghost"
@@ -247,7 +238,6 @@ export function ProviderCard({ id, provider, remove }: TProviderCardProps) {
                 icon={<Trash boxSize="4" />}
                 onClick={openDeleteProviderModal}
                 isLoading={remove.status === "loading" && remove.target?.providerID === id}
-                isDisabled={provider.isProxyProvider}
               />
             </Tooltip>
           </ButtonGroup>

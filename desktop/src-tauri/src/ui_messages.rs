@@ -1,8 +1,8 @@
 use crate::AppState;
 use crate::{custom_protocol::ParseError, window::WindowHelper, AppHandle};
 use log::{error, warn};
-use serde::{de, Deserialize, Serialize};
-use std::collections::{HashMap, VecDeque};
+use serde::{Deserialize, Serialize};
+use std::collections::VecDeque;
 use tauri::{Emitter, Manager, State};
 use tokio::sync::mpsc::Receiver;
 
@@ -89,8 +89,6 @@ pub enum UiMessage {
     ShowDashboard,
     ShowToast(ShowToastMsg),
     OpenWorkspace(OpenWorkspaceMsg),
-    SetupPro(SetupProMsg),
-    ImportWorkspace(ImportWorkspaceMsg),
     CommandFailed(ParseError),
 }
 
@@ -132,101 +130,6 @@ pub struct OpenWorkspaceMsg {
     pub provider_id: Option<String>,
     pub ide: Option<String>,
     pub source: Option<String>,
-}
-
-#[derive(Debug, PartialEq, Serialize, Clone)]
-#[serde(deny_unknown_fields)]
-pub struct ImportWorkspaceMsg {
-    pub workspace_id: String,
-    pub workspace_uid: String,
-    pub devpod_pro_host: String,
-    pub project: String,
-    pub options: HashMap<String, String>,
-}
-
-impl<'de> Deserialize<'de> for ImportWorkspaceMsg {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let mut options = HashMap::deserialize(deserializer)?;
-
-        let workspace_id = options
-            .remove("workspace-id")
-            .ok_or_else(|| de::Error::missing_field("workspace-id"))?;
-
-        let workspace_uid = options
-            .remove("workspace-uid")
-            .ok_or_else(|| de::Error::missing_field("workspace-uid"))?;
-
-        let devpod_pro_host = options
-            .remove("devpod-pro-host")
-            .ok_or_else(|| de::Error::missing_field("devpod-pro-host"))?;
-
-        let project = options
-            .remove("project")
-            .ok_or_else(|| de::Error::missing_field("project"))?;
-
-        Ok(ImportWorkspaceMsg {
-            workspace_id,
-            workspace_uid,
-            devpod_pro_host,
-            project,
-            options,
-        })
-    }
-}
-
-#[derive(Debug, PartialEq, Serialize, Clone)]
-#[serde(deny_unknown_fields)]
-pub struct SetupProMsg {
-    pub host: String,
-    #[serde(rename(serialize = "accessKey"))]
-    pub access_key: Option<String>,
-    pub options: Option<HashMap<String, String>>,
-}
-
-impl<'de> Deserialize<'de> for SetupProMsg {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let mut all_fields = HashMap::<String, String>::deserialize(deserializer)?;
-
-        let host = all_fields
-            .remove("host")
-            .ok_or_else(|| de::Error::missing_field("host"))?;
-
-        let mut access_key = all_fields.remove("access_key");
-        if access_key.is_none() {
-            access_key = all_fields.remove("accessKey");
-        }
-
-        // Options are urlencoded
-        let options = all_fields.remove("options");
-        if let Some(options) = options {
-            let options =
-                serde_urlencoded::from_str::<Vec<(String, String)>>(&options).map_err(|err| {
-                    de::Error::custom(format!("Failed to url decode options: {}", err))
-                })?;
-            let options =
-                serde_json::from_str::<HashMap<String, String>>(&options[0].0).map_err(|err| {
-                    de::Error::custom(format!("Failed to json parse options: {}", err))
-                })?;
-
-            Ok(SetupProMsg {
-                host,
-                access_key,
-                options: Some(options),
-            })
-        } else {
-            Ok(SetupProMsg {
-                host,
-                access_key,
-                options: None,
-            })
-        }
-    }
 }
 
 impl OpenWorkspaceMsg {

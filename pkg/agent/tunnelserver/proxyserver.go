@@ -107,10 +107,6 @@ func (t *proxyServer) GitSSHSignature(ctx context.Context, message *tunnel.Messa
 	return t.client.GitSSHSignature(ctx, message)
 }
 
-func (t *proxyServer) LoftConfig(ctx context.Context, message *tunnel.Message) (*tunnel.Message, error) {
-	return t.client.LoftConfig(ctx, message)
-}
-
 func (t *proxyServer) GPGPublicKeys(ctx context.Context, message *tunnel.Message) (*tunnel.Message, error) {
 	return t.client.GPGPublicKeys(ctx, message)
 }

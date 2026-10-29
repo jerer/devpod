@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/blang/semver"
 	"github.com/loft-sh/devpod/cmd/flags"
 	"github.com/loft-sh/devpod/pkg/agent"
 	"github.com/loft-sh/devpod/pkg/agent/tunnelserver"
@@ -21,7 +20,6 @@ import (
 	"github.com/loft-sh/devpod/pkg/client/clientimplementation"
 	"github.com/loft-sh/devpod/pkg/command"
 	"github.com/loft-sh/devpod/pkg/config"
-	"github.com/loft-sh/devpod/pkg/credentials"
 	config2 "github.com/loft-sh/devpod/pkg/devcontainer/config"
 	"github.com/loft-sh/devpod/pkg/devcontainer/sshtunnel"
 	dpFlags "github.com/loft-sh/devpod/pkg/flags"
@@ -31,13 +29,11 @@ import (
 	"github.com/loft-sh/devpod/pkg/ide/marimo"
 	"github.com/loft-sh/devpod/pkg/ide/openvscode"
 	"github.com/loft-sh/devpod/pkg/ide/vscode"
-	"github.com/loft-sh/devpod/pkg/loft"
 	open2 "github.com/loft-sh/devpod/pkg/open"
 	"github.com/loft-sh/devpod/pkg/port"
 	provider2 "github.com/loft-sh/devpod/pkg/provider"
 	devssh "github.com/loft-sh/devpod/pkg/ssh"
 	"github.com/loft-sh/devpod/pkg/tunnel"
-	"github.com/loft-sh/devpod/pkg/version"
 	workspace2 "github.com/loft-sh/devpod/pkg/workspace"
 	"github.com/loft-sh/log"
 	"github.com/pkg/errors"
@@ -56,10 +52,9 @@ type UpCmd struct {
 
 	ProviderOptions []string
 
-	ConfigureSSH            bool
-	GPGAgentForwarding      bool
-	OpenIDE                 bool
-	SetupLoftPlatformAccess bool
+	ConfigureSSH       bool
+	GPGAgentForwarding bool
+	OpenIDE            bool
 
 	SSHConfigPath string
 
@@ -135,18 +130,6 @@ func NewUpCmd(f *flags.GlobalFlags) *cobra.Command {
 				return err
 			}
 
-			if !cmd.Proxy {
-				proInstance := getProInstance(devPodConfig, client.Provider(), logger)
-				if proInstance != nil {
-					cmd.SetupLoftPlatformAccess = true
-				}
-
-				err = checkProviderUpdate(devPodConfig, proInstance, logger)
-				if err != nil {
-					return err
-				}
-			}
-
 			return cmd.Run(ctx, devPodConfig, client, logger)
 		},
 	}
@@ -182,8 +165,6 @@ func NewUpCmd(f *flags.GlobalFlags) *cobra.Command {
 	upCmd.Flags().BoolVar(&cmd.Proxy, "proxy", false, "If true will forward agent requests to stdio")
 	upCmd.Flags().BoolVar(&cmd.ForceCredentials, "force-credentials", false, "If true will always use local credentials")
 	_ = upCmd.Flags().MarkHidden("force-credentials")
-	upCmd.Flags().BoolVar(&cmd.SetupLoftPlatformAccess, "setup-loft-platform-access", false, "If true will setup Loft Platform access based on local configuration")
-	_ = upCmd.Flags().MarkHidden("setup-loft-platform-access")
 
 	upCmd.Flags().StringVar(&cmd.SSHKey, "ssh-key", "", "The ssh-key to use")
 	_ = upCmd.Flags().MarkHidden("ssh-key")
@@ -255,15 +236,6 @@ func (cmd *UpCmd) Run(
 	// setup git ssh signature
 	if cmd.GitSSHSigningKey != "" {
 		err = setupGitSSHSignature(cmd.GitSSHSigningKey, client, log)
-		if err != nil {
-			return err
-		}
-	}
-
-	// setup loft platform access
-	context := devPodConfig.Current()
-	if cmd.SetupLoftPlatformAccess {
-		err = setupLoftPlatformAccess(devPodConfig.DefaultContext, context.DefaultProvider, user, client, log)
 		if err != nil {
 			return err
 		}
@@ -1163,42 +1135,6 @@ func setupGitSSHSignature(signingKey string, client client2.BaseWorkspaceClient,
 	return nil
 }
 
-func setupLoftPlatformAccess(context, provider, user string, client client2.BaseWorkspaceClient, log log.Logger) error {
-	log.Infof("Setting up platform access")
-	execPath, err := os.Executable()
-	if err != nil {
-		return err
-	}
-
-	port, err := credentials.GetPort()
-	if err != nil {
-		return fmt.Errorf("get port: %w", err)
-	}
-
-	command := fmt.Sprintf("\"%s\" agent container setup-loft-platform-access --context %s --provider %s --port %d", agent.ContainerDevPodHelperLocation, context, provider, port)
-
-	log.Debugf("Executing command: %v", command)
-	var errb bytes.Buffer
-	cmd := exec.Command(
-		execPath,
-		"ssh",
-		"--start-services=true",
-		"--user",
-		user,
-		"--context",
-		client.Context(),
-		client.Workspace(),
-		"--command", command,
-	)
-	cmd.Stderr = &errb
-	err = cmd.Run()
-	if err != nil {
-		log.Debugf("failed to set up platform access in workspace: %s", errb.String())
-	}
-
-	return nil
-}
-
 func performGpgForwarding(
 	client client2.BaseWorkspaceClient,
 	log log.Logger,
@@ -1240,79 +1176,4 @@ func performGpgForwarding(
 	}()
 
 	return nil
-}
-
-// checkProviderUpdate currently only ensures the local provider is in sync with the remote for DevPod Pro instances
-// Potentially auto-upgrade other providers in the future.
-func checkProviderUpdate(devPodConfig *config.Config, proInstance *provider2.ProInstance, log log.Logger) error {
-	if version.GetVersion() == version.DevVersion {
-		log.Debugf("Skipping provider upgrade check during development")
-		return nil
-	}
-	if proInstance == nil {
-		log.Debugf("No pro instance available, skipping provider upgrade check")
-		return nil
-	}
-
-	// compare versions
-	newVersion, err := loft.GetProInstanceDevPodVersion(proInstance)
-	if err != nil {
-		return fmt.Errorf("version for pro instance %s: %w", proInstance.Host, err)
-	}
-
-	p, err := workspace2.FindProvider(devPodConfig, proInstance.Provider, log)
-	if err != nil {
-		return fmt.Errorf("get provider config for pro provider %s: %w", proInstance.Provider, err)
-	}
-	if p.Config.Version == version.DevVersion {
-		return nil
-	}
-
-	v1, err := semver.Parse(strings.TrimPrefix(newVersion, "v"))
-	if err != nil {
-		return fmt.Errorf("parse version %s: %w", newVersion, err)
-	}
-	v2, err := semver.Parse(strings.TrimPrefix(p.Config.Version, "v"))
-	if err != nil {
-		return fmt.Errorf("parse version %s: %w", p.Config.Version, err)
-	}
-	if v1.Compare(v2) == 0 {
-		return nil
-	}
-	log.Infof("New provider version available, attempting to update %s", proInstance.Provider)
-
-	providerSource, err := workspace2.ResolveProviderSource(devPodConfig, proInstance.Provider, log)
-	if err != nil {
-		return fmt.Errorf("resolve provider source %s: %w", proInstance.Provider, err)
-	}
-
-	splitted := strings.Split(providerSource, "@")
-	if len(splitted) == 0 {
-		return fmt.Errorf("no provider source found %s", providerSource)
-	}
-	providerSource = splitted[0] + "@" + newVersion
-
-	_, err = workspace2.UpdateProvider(devPodConfig, proInstance.Provider, providerSource, log)
-	if err != nil {
-		return fmt.Errorf("update provider %s: %w", proInstance.Provider, err)
-	}
-
-	log.Donef("Successfully updated provider %s", proInstance.Provider)
-	return nil
-}
-
-func getProInstance(devPodConfig *config.Config, providerName string, log log.Logger) *provider2.ProInstance {
-	proInstances, err := workspace2.ListProInstances(devPodConfig, log)
-	if err != nil {
-		return nil
-	} else if len(proInstances) == 0 {
-		return nil
-	}
-
-	proInstance, ok := workspace2.FindProviderProInstance(proInstances, providerName)
-	if !ok {
-		return nil
-	}
-
-	return proInstance
 }

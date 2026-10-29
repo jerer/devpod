@@ -15,7 +15,6 @@ import { Result, Return, isError, noop } from "../lib"
 import { TCommunityContributions, TUnsubscribeFn } from "../types"
 import { ContextClient } from "./context"
 import { IDEsClient } from "./ides"
-import { ProClient } from "./pro"
 import { ProvidersClient } from "./providers"
 import { WorkspacesClient } from "./workspaces"
 import { Command as DevPodCommand } from "./command"
@@ -37,20 +36,6 @@ type TChannels = {
         provider_id: string | null
         ide: string | null
         source: string
-      }>
-    | Readonly<{
-        type: "ImportWorkspace"
-        workspace_id: string
-        workspace_uid: string
-        devpod_pro_host: string
-        project: string
-        options: Record<string, string> | null
-      }>
-    | Readonly<{
-        type: "SetupPro"
-        host: string
-        accessKey: string | null
-        options: Record<string, string> | null
       }>
 }
 type TChannelName = keyof TChannels
@@ -74,7 +59,6 @@ class Client {
   public readonly providers = new ProvidersClient()
   public readonly ides = new IDEsClient()
   public readonly context = new ContextClient()
-  public readonly pro = new ProClient()
 
   public setSetting<TSettingName extends keyof TClientSettings>(
     name: TSettingName,
@@ -86,7 +70,6 @@ class Client {
       this.workspaces.setDebug(debug)
       this.providers.setDebug(debug)
       this.ides.setDebug(debug)
-      this.pro.setDebug(debug)
     }
     if (name === "additionalCliFlags") {
       this.workspaces.setAdditionalFlags(value as string)

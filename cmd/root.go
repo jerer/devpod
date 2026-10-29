@@ -12,9 +12,9 @@ import (
 	"github.com/loft-sh/devpod/cmd/helper"
 	"github.com/loft-sh/devpod/cmd/ide"
 	"github.com/loft-sh/devpod/cmd/machine"
-	"github.com/loft-sh/devpod/cmd/pro"
 	"github.com/loft-sh/devpod/cmd/provider"
 	"github.com/loft-sh/devpod/cmd/use"
+	"github.com/loft-sh/devpod/pkg/cli"
 	"github.com/loft-sh/devpod/pkg/client/clientimplementation"
 	"github.com/loft-sh/devpod/pkg/config"
 	log2 "github.com/loft-sh/log"
@@ -71,6 +71,10 @@ func NewRootCmd() *cobra.Command {
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
+	// Make sure child processes such as git use the system libraries instead of
+	// the ones bundled into the AppImage, which can be incompatible.
+	cli.FixAppImageEnvironment()
+
 	defer func() {
 		// recover from panic in order to log it
 		if err := recover(); err != nil {
@@ -123,7 +127,6 @@ func BuildRoot() *cobra.Command {
 	rootCmd.AddCommand(ide.NewIDECmd(globalFlags))
 	rootCmd.AddCommand(machine.NewMachineCmd(globalFlags))
 	rootCmd.AddCommand(context.NewContextCmd(globalFlags))
-	rootCmd.AddCommand(pro.NewProCmd(globalFlags, log2.Default))
 	rootCmd.AddCommand(NewUpCmd(globalFlags))
 	rootCmd.AddCommand(NewDeleteCmd(globalFlags))
 	rootCmd.AddCommand(NewSSHCmd(globalFlags))

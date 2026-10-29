@@ -44,7 +44,6 @@ const initialSettings: TSettings = {
   experimental_vscodeInsiders: true,
   experimental_cursor: true,
   experimental_positron: false,
-  experimental_devPodPro: false,
 }
 function getSettingKeys(): readonly TSetting[] {
   return getKeys(initialSettings)

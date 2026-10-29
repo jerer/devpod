@@ -1,5 +1,4 @@
 import { UseMutationResult } from "@tanstack/react-query"
-import { TStreamEventListenerFn } from "./client"
 
 type TMaybe<T> = T | null | undefined
 export type TUnsubscribeFn = VoidFunction
@@ -31,6 +30,7 @@ export type TIDE = Readonly<{
 }>
 //#endregion
 
+
 //#region Provider
 export type TProviderID = string
 export type TOptionID = string
@@ -47,9 +47,7 @@ export type TProvider = Readonly<{
       options: TMaybe<TProviderOptions>
     }>
   >
-}> & {
-  isProxyProvider: boolean
-}
+}>
 export type TNamedProvider = TProvider & Readonly<{ name: string }>
 export type TProviderConfig = Readonly<{
   name: TMaybe<string>
@@ -193,15 +191,6 @@ export const SUPPORTED_IDES = [
   "fleet",
 ] as const
 export type TSupportedIDE = (typeof SUPPORTED_IDES)[number]
-export type TImportWorkspaceConfig = Readonly<{
-  workspaceID: string
-  workspaceUID: string
-  devPodProHost: string
-  project: string
-  options: Record<string, string> | null
-}>
-
-//#endregion
 
 //#region Context
 export type TContextOptions = Record<TContextOptionName, TContextOption>
@@ -219,37 +208,6 @@ export type TContextOption = Readonly<{
 }>
 //#endregion
 
-//#region Pro
-export type TProID = string
-export type TWithProID = Readonly<{ id: TProID }>
-export type TProInstance = Readonly<{
-  host: TMaybe<string>
-  provider: TMaybe<string>
-  creationTimestamp: TMaybe<string>
-  authenticated: TMaybe<boolean>
-}>
-export type TProInstances = readonly TProInstance[]
-export type TProInstanceManager = Readonly<{
-  login: TRunnable<TProInstanceLoginConfig> &
-    Pick<UseMutationResult<TProvider, Error, unknown>, "status" | "error" | "reset"> & {
-      provider: TProvider | undefined
-    }
-  disconnect: TRunnable<TWithProID> &
-    Pick<UseMutationResult, "status" | "error"> & { target: TWithProID | undefined }
-}>
-export type TProInstanceLoginConfig = Readonly<{
-  host: string
-  providerName?: string
-  accessKey?: string
-  streamListener?: TStreamEventListenerFn
-}>
-export type TListProInstancesConfig = Readonly<
-  | {
-      authenticate?: boolean
-    }
-  | undefined
->
-//#endregion
 
 export type TDevcontainerSetup = Readonly<{
   isGitRepository: boolean

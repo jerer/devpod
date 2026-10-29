@@ -11,7 +11,6 @@ export const QueryKeys = {
   COMMUNITY_CONTRIBUTIONS: ["communityContributions"],
   CONTEXT_OPTIONS: ["contextOptions"],
   APP_VERSION: ["appVersion"],
-  PRO_INSTANCES: ["proInstances"],
   workspace(id: TWorkspaceID): string[] {
     return [...QueryKeys.WORKSPACES, id]
   },

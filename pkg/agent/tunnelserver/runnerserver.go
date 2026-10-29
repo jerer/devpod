@@ -69,10 +69,6 @@ func (t *runnerServer) GitSSHSignature(ctx context.Context, message *tunnel.Mess
 	return &tunnel.Message{}, nil
 }
 
-func (t *runnerServer) LoftConfig(ctx context.Context, message *tunnel.Message) (*tunnel.Message, error) {
-	return &tunnel.Message{}, nil
-}
-
 func (t *runnerServer) Ping(context.Context, *tunnel.Empty) (*tunnel.Empty, error) {
 	t.log.Debugf("Received ping from agent")
 	return &tunnel.Empty{}, nil

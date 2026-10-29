@@ -37,8 +37,6 @@ pub struct Settings {
     experimental_cursor: bool,
     #[serde(rename = "experimental_positron")]
     experimental_positron: bool,
-    #[serde(rename = "experimental_devPodPro")]
-    experimental_devpod_pro: bool,
 }
 
 #[derive(Debug, Serialize, TS)]

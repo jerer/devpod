@@ -11,8 +11,6 @@ import {
   HStack,
   Icon,
   IconButton,
-  List,
-  ListItem,
   Menu,
   MenuButton,
   MenuItem,
@@ -38,15 +36,13 @@ import { useMutation, useQuery } from "@tanstack/react-query"
 import { save } from "@tauri-apps/plugin-dialog"
 import dayjs from "dayjs"
 import { useCallback, useId, useMemo, useRef, useState } from "react"
-import { HiClock, HiOutlineCode, HiOutlineDownload, HiShare } from "react-icons/hi"
-import { HiServerStack } from "react-icons/hi2"
+import { HiClock, HiOutlineCode, HiOutlineDownload } from "react-icons/hi"
 import { useNavigate } from "react-router"
 import { client } from "../../client"
 import { IconTag, IDEIcon } from "../../components"
 import {
   TActionID,
   TActionObj,
-  useProInstances,
   useProvider,
   useSettings,
   useWorkspace,
@@ -60,19 +56,16 @@ import {
   Pause,
   Play,
   Stack3D,
-  Template,
   Trash,
 } from "../../icons"
 import { getIDEDisplayName, useHover } from "../../lib"
 import { QueryKeys } from "../../queryKeys"
 import { Routes } from "../../routes"
-import { TIDE, TIDEs, TProInstance, TProvider, TWorkspace, TWorkspaceID } from "../../types"
+import { TIDE, TIDEs, TProvider, TWorkspace, TWorkspaceID } from "../../types"
 import { useIDEs } from "../../useIDEs"
 import { ConfigureProviderOptionsForm } from "../Providers"
 import { getIDEName, getSourceName } from "./helpers"
 import { WorkspaceStatusBadge } from "./WorkspaceStatusBadge"
-import { processDisplayOptions } from "../Providers/AddProvider/useProviderOptions"
-import { mergeOptionDefinitions, TOptionWithID } from "../Providers/helpers"
 
 type TWorkspaceCardProps = Readonly<{
   workspaceID: TWorkspaceID
@@ -426,10 +419,6 @@ function WorkspaceCardHeader({
       ? getIDEName({ name: ideName }, idesQuery.data)
       : getIDEName(ide, idesQuery.data)
 
-  const maybeRunnerName = getRunnerName(workspace, provider)
-  const maybeTemplate = getTemplate(workspace, provider)
-  const maybeTemplateOptions = getTemplateOptions(workspace, provider)
-
   return (
     <CardHeader overflow="hidden" w="full">
       <VStack align="start" spacing={0}>
@@ -500,41 +489,6 @@ function WorkspaceCardHeader({
           label={ideDisplayName}
           info={`Will be opened in ${ideDisplayName}`}
         />
-        {maybeTemplate && (
-          <IconTag
-            icon={<Template />}
-            label={maybeTemplate}
-            info={
-              <Box width="full">
-                Using {maybeTemplate} template with options: <br />
-                {maybeTemplateOptions.length > 0 ? (
-                  <List mt="2" width="full">
-                    {maybeTemplateOptions.map((opt) => (
-                      <ListItem
-                        key={opt.id}
-                        width="full"
-                        display="flex"
-                        flexFlow="row nowrap"
-                        alignItems="space-between">
-                        <Text fontWeight="bold">{opt.value}</Text>
-                        <Text ml="4">({opt.displayName || opt.id})</Text>
-                      </ListItem>
-                    ))}
-                  </List>
-                ) : (
-                  "No options configured"
-                )}
-              </Box>
-            }
-          />
-        )}
-        {maybeRunnerName && (
-          <IconTag
-            icon={<Icon as={HiServerStack} />}
-            label={maybeRunnerName}
-            info={`Running on ${maybeRunnerName}`}
-          />
-        )}
         <IconTag
           icon={<Icon as={HiClock} />}
           label={dayjs(new Date(lastUsed)).fromNow()}
@@ -579,18 +533,6 @@ function WorkspaceControls({
   onLogsClicked,
   onChangeOptionsClicked,
 }: TWorkspaceControlsProps) {
-  const [[proInstances]] = useProInstances()
-  const proInstance = useMemo<TProInstance | undefined>(() => {
-    if (!provider?.isProxyProvider) {
-      return undefined
-    }
-
-    return proInstances?.find((instance) => instance.provider === provider.config?.name)
-  }, [proInstances, provider?.config?.name, provider?.isProxyProvider])
-  const { isEnabled: isShareEnabled, onClick: handleShareClicked } = useShareWorkspace(
-    workspace.data,
-    proInstance
-  )
   const { isExporting, onClick: handleExportClicked } = useExportWorkspace(id)
 
   const handleOpenWithIDEClicked = (id: TWorkspaceID, ide: TIDE["name"]) => async () => {
@@ -610,8 +552,7 @@ function WorkspaceControls({
     "Cannot open this workspace because it is busy. If this doesn't change, try to force delete and recreate it."
   const [isStartWithHovering, startWithRef] = useHover()
   const [isPopoverHovering, popoverContentRef] = useHover()
-  const isChangeOptionsEnabled =
-    workspace.data?.provider?.options != null && proInstance !== undefined
+  const isChangeOptionsEnabled = workspace.data?.provider?.options != null
 
   return (
     <HStack spacing="2" width="full" justifyContent="end">
@@ -707,11 +648,6 @@ function WorkspaceControls({
                   Change Options
                 </MenuItem>
               )}
-              {isShareEnabled && (
-                <MenuItem icon={<Icon as={HiShare} boxSize={4} />} onClick={handleShareClicked}>
-                  Share
-                </MenuItem>
-              )}
               <MenuItem
                 fontWeight="normal"
                 icon={<CommandLine boxSize={4} />}
@@ -780,93 +716,3 @@ function useExportWorkspace(workspaceID: TWorkspaceID) {
   }
 }
 
-function useShareWorkspace(
-  workspace: TWorkspace | undefined,
-  proInstance: TProInstance | undefined
-) {
-  const toast = useToast()
-
-  const handleShareClicked = useCallback(async () => {
-    const devpodProHost = proInstance?.host
-    const workspace_id = workspace?.id
-    const workspace_uid = workspace?.uid
-    if (!devpodProHost || !workspace_id || !workspace_uid) {
-      return
-    }
-
-    const searchParams = new URLSearchParams()
-    searchParams.set("workspace-uid", workspace_uid)
-    searchParams.set("workspace-id", workspace_id)
-    searchParams.set("devpod-pro-host", devpodProHost)
-
-    const link = `https://devpod.sh/import#${searchParams.toString()}`
-    const res = await client.writeToClipboard(link)
-    if (!res.ok) {
-      toast({
-        title: "Failed to share workspace",
-        description: res.val.message,
-        status: "error",
-        duration: 5_000,
-        isClosable: true,
-      })
-
-      return
-    }
-
-    toast({
-      title: "Copied workspace link to clipboard",
-      status: "success",
-      duration: 5_000,
-      isClosable: true,
-    })
-  }, [proInstance?.host, toast, workspace?.id, workspace?.uid])
-
-  return {
-    isEnabled: workspace !== undefined && proInstance !== undefined,
-    onClick: handleShareClicked,
-  }
-}
-
-function getRunnerName(workspace: TWorkspace, provider: TProvider | undefined): string | undefined {
-  const options = mergeOptionDefinitions(
-    workspace.provider?.options ?? {},
-    provider?.config?.options ?? {}
-  )
-  const maybeRunnerOption = options["LOFT_RUNNER"]
-  if (!maybeRunnerOption) {
-    return undefined
-  }
-  const value = maybeRunnerOption.value
-
-  return maybeRunnerOption.enum?.find((e) => e.value === value)?.displayName ?? value ?? undefined
-}
-
-function getTemplate(workspace: TWorkspace, provider: TProvider | undefined): string | undefined {
-  const options = mergeOptionDefinitions(
-    workspace.provider?.options ?? {},
-    provider?.config?.options ?? {}
-  )
-  const maybeTemplateOption = options["LOFT_TEMPLATE"]
-  if (!maybeTemplateOption) {
-    return undefined
-  }
-  const value = maybeTemplateOption.value
-
-  return maybeTemplateOption.enum?.find((e) => e.value === value)?.displayName ?? value ?? undefined
-}
-
-function getTemplateOptions(
-  workspace: TWorkspace,
-  provider: TProvider | undefined
-): readonly TOptionWithID[] {
-  const options = mergeOptionDefinitions(
-    workspace.provider?.options ?? {},
-    provider?.config?.options ?? {}
-  )
-  const displayOptions = processDisplayOptions(options, [], true)
-
-  // shouldn't have groups here as we passed in empty array earlier
-  return [...displayOptions.required, ...displayOptions.other].filter(
-    (opt) => opt.id !== "LOFT_TEMPLATE"
-  )
-}

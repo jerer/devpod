@@ -277,7 +277,7 @@ func updateProvider(devPodConfig *config.Config, providerName string, raw []byte
 		return nil, errors.Wrap(err, "get binaries dir")
 	}
 
-	_, err = binaries.DownloadBinaries(providerConfig.Binaries, binariesDir, log)
+	_, err = binaries.DownloadBinaries(providerConfig.Binaries, providerConfig.Name, binariesDir, log)
 	if err != nil {
 		_ = os.RemoveAll(binariesDir)
 		return nil, errors.Wrap(err, "download binaries")
@@ -323,7 +323,7 @@ func installProvider(devPodConfig *config.Config, providerConfig *provider2.Prov
 		return nil, errors.Wrap(err, "get binaries dir")
 	}
 
-	_, err = binaries.DownloadBinaries(providerConfig.Binaries, binariesDir, log)
+	_, err = binaries.DownloadBinaries(providerConfig.Binaries, providerConfig.Name, binariesDir, log)
 	if err != nil {
 		_ = os.RemoveAll(providerDir)
 		return nil, errors.Wrap(err, "download binaries")
