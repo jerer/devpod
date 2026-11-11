@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/loft-sh/devpod/cmd/flags"
@@ -202,25 +203,13 @@ func (cmd *RegisterCmd) Run(ctx context.Context, devPodConfig *config.Config, po
 		LastUsedTimestamp:  now,
 		Imported:           true,
 	}
-	if namespace != "" {
-		workspaceConfig.Provider.Options = map[string]config.OptionValue{
-			"KUBERNETES_NAMESPACE": {
-				Value:        namespace,
-				UserProvided: true,
-				Filled:       &now,
-			},
-		}
-	}
+	workspaceConfig.Provider.Options = providerOptionsFromPod(pod, namespace, now)
 
 	warnings := podConfigWarnings(
-		pod,
 		containerInfo,
 		devContainerConfig,
 		cmd.GitURL != "",
-		providerWithOptions,
-		devPodConfig,
 		uid,
-		namespace,
 	)
 
 	if cmd.Check {
@@ -283,6 +272,7 @@ type kubernetesProviderOptions struct {
 	StorageClass                     string `json:"storageClass,omitempty"`
 	DiskSize                         string `json:"diskSize,omitempty"`
 	PvcAccessMode                    string `json:"pvcAccessMode,omitempty"`
+	PvcAnnotations                   string `json:"pvcAnnotations,omitempty"`
 	NodeSelector                     string `json:"nodeSelector,omitempty"`
 	Resources                        string `json:"resources,omitempty"`
 	WorkspaceVolumeMount             string `json:"workspaceVolumeMount,omitempty"`
@@ -294,46 +284,45 @@ type kubernetesProviderOptions struct {
 }
 
 func podConfigWarnings(
-	pod *corev1.Pod,
 	containerInfo *kubernetesDevContainerInfo,
 	devContainerConfig *devcontainerconfig.DevContainerConfig,
 	hasDevContainerConfig bool,
-	providerWithOptions *workspace2.ProviderWithOptions,
-	devPodConfig *config.Config,
 	uid string,
-	namespace string,
 ) []string {
-	warnings := []string{}
-
-	if changed := changedProviderOptions(pod, providerWithOptions, devPodConfig, uid); len(changed) > 0 {
-		warnings = append(warnings, fmt.Sprintf(
-			"provider options differ: %s",
-			strings.Join(changed, ", "),
-		))
-	}
-
-	if namespace != "" && pod.Namespace != "" && namespace != pod.Namespace {
-		warnings = append(warnings, fmt.Sprintf(
-			"pod is in namespace %s, but the workspace will use namespace %s",
-			pod.Namespace,
-			namespace,
-		))
-	}
-
 	if hasDevContainerConfig && containerInfo != nil && containerInfo.Options != nil &&
 		devContainerConfigDiffers(devContainerConfig, containerInfo.Options, uid) {
-		warnings = append(warnings, "the devcontainer configuration differs from the configuration the pod was created with")
+		return []string{"the devcontainer configuration differs from the configuration the pod was created with"}
 	}
 
-	return warnings
+	return nil
 }
 
-func changedProviderOptions(
-	pod *corev1.Pod,
-	providerWithOptions *workspace2.ProviderWithOptions,
-	devPodConfig *config.Config,
-	uid string,
-) []string {
+func providerOptionsFromPod(pod *corev1.Pod, namespace string, now types.Time) map[string]config.OptionValue {
+	values := map[string]string{}
+	if storedOptions := kubernetesProviderOptionsFromPod(pod); storedOptions != nil {
+		values = storedOptions.toOptionValues()
+	}
+
+	if namespace == "" {
+		namespace = pod.Namespace
+	}
+	if namespace != "" {
+		values["KUBERNETES_NAMESPACE"] = namespace
+	}
+
+	options := map[string]config.OptionValue{}
+	for name, value := range values {
+		options[name] = config.OptionValue{
+			Value:        value,
+			UserProvided: true,
+			Filled:       &now,
+		}
+	}
+
+	return options
+}
+
+func kubernetesProviderOptionsFromPod(pod *corev1.Pod) *kubernetesProviderOptions {
 	raw := ""
 	if pod.Annotations != nil {
 		raw = pod.Annotations[devPodLastAppliedAnnotation]
@@ -349,60 +338,31 @@ func changedProviderOptions(
 		return nil
 	}
 
-	option := func(name string) string {
-		return providerOption(providerWithOptions, devPodConfig, name)
-	}
-	currentOptions := &kubernetesProviderOptions{
-		DevContainerID:                   uid,
-		KubernetesPullSecretsEnabled:     option("KUBERNETES_PULL_SECRETS_ENABLED"),
-		CreateNamespace:                  option("CREATE_NAMESPACE"),
-		ClusterRole:                      option("CLUSTER_ROLE"),
-		ServiceAccount:                   option("SERVICE_ACCOUNT"),
-		HelperImage:                      option("HELPER_IMAGE"),
-		HelperResources:                  option("HELPER_RESOURCES"),
-		InactivityTimeout:                option("INACTIVITY_TIMEOUT"),
-		StorageClass:                     option("STORAGE_CLASS"),
-		DiskSize:                         option("DISK_SIZE"),
-		PvcAccessMode:                    option("PVC_ACCESS_MODE"),
-		NodeSelector:                     option("NODE_SELECTOR"),
-		Resources:                        option("RESOURCES"),
-		WorkspaceVolumeMount:             option("WORKSPACE_VOLUME_MOUNT"),
-		PodManifestTemplate:              option("POD_MANIFEST_TEMPLATE"),
-		ArchDetectionPodManifestTemplate: option("ARCH_DETECTION_POD_MANIFEST_TEMPLATE"),
-		Labels:                           option("LABELS"),
-		DangerouslyOverrideImage:         option("DANGEROUSLY_OVERRIDE_IMAGE"),
-		StrictSecurity:                   strings.EqualFold(strings.TrimSpace(option("STRICT_SECURITY")), "true"),
-	}
+	return storedOptions
+}
 
-	changed := []string{}
-	add := func(name, stored, current string) {
-		if stored != current {
-			changed = append(changed, name)
-		}
+func (o *kubernetesProviderOptions) toOptionValues() map[string]string {
+	return map[string]string{
+		"KUBERNETES_PULL_SECRETS_ENABLED":      o.KubernetesPullSecretsEnabled,
+		"CREATE_NAMESPACE":                     o.CreateNamespace,
+		"CLUSTER_ROLE":                         o.ClusterRole,
+		"SERVICE_ACCOUNT":                      o.ServiceAccount,
+		"HELPER_IMAGE":                         o.HelperImage,
+		"HELPER_RESOURCES":                     o.HelperResources,
+		"INACTIVITY_TIMEOUT":                   o.InactivityTimeout,
+		"STORAGE_CLASS":                        o.StorageClass,
+		"DISK_SIZE":                            o.DiskSize,
+		"PVC_ACCESS_MODE":                      o.PvcAccessMode,
+		"PVC_ANNOTATIONS":                      o.PvcAnnotations,
+		"NODE_SELECTOR":                        o.NodeSelector,
+		"RESOURCES":                            o.Resources,
+		"WORKSPACE_VOLUME_MOUNT":               o.WorkspaceVolumeMount,
+		"POD_MANIFEST_TEMPLATE":                o.PodManifestTemplate,
+		"ARCH_DETECTION_POD_MANIFEST_TEMPLATE": o.ArchDetectionPodManifestTemplate,
+		"LABELS":                               o.Labels,
+		"DANGEROUSLY_OVERRIDE_IMAGE":           o.DangerouslyOverrideImage,
+		"STRICT_SECURITY":                      strconv.FormatBool(o.StrictSecurity),
 	}
-	add("DEVCONTAINER_ID", storedOptions.DevContainerID, currentOptions.DevContainerID)
-	add("KUBERNETES_PULL_SECRETS_ENABLED", storedOptions.KubernetesPullSecretsEnabled, currentOptions.KubernetesPullSecretsEnabled)
-	add("CREATE_NAMESPACE", storedOptions.CreateNamespace, currentOptions.CreateNamespace)
-	add("CLUSTER_ROLE", storedOptions.ClusterRole, currentOptions.ClusterRole)
-	add("SERVICE_ACCOUNT", storedOptions.ServiceAccount, currentOptions.ServiceAccount)
-	add("HELPER_IMAGE", storedOptions.HelperImage, currentOptions.HelperImage)
-	add("HELPER_RESOURCES", storedOptions.HelperResources, currentOptions.HelperResources)
-	add("INACTIVITY_TIMEOUT", storedOptions.InactivityTimeout, currentOptions.InactivityTimeout)
-	add("STORAGE_CLASS", storedOptions.StorageClass, currentOptions.StorageClass)
-	add("DISK_SIZE", storedOptions.DiskSize, currentOptions.DiskSize)
-	add("PVC_ACCESS_MODE", storedOptions.PvcAccessMode, currentOptions.PvcAccessMode)
-	add("NODE_SELECTOR", storedOptions.NodeSelector, currentOptions.NodeSelector)
-	add("RESOURCES", storedOptions.Resources, currentOptions.Resources)
-	add("WORKSPACE_VOLUME_MOUNT", storedOptions.WorkspaceVolumeMount, currentOptions.WorkspaceVolumeMount)
-	add("POD_MANIFEST_TEMPLATE", storedOptions.PodManifestTemplate, currentOptions.PodManifestTemplate)
-	add("ARCH_DETECTION_POD_MANIFEST_TEMPLATE", storedOptions.ArchDetectionPodManifestTemplate, currentOptions.ArchDetectionPodManifestTemplate)
-	add("LABELS", storedOptions.Labels, currentOptions.Labels)
-	add("DANGEROUSLY_OVERRIDE_IMAGE", storedOptions.DangerouslyOverrideImage, currentOptions.DangerouslyOverrideImage)
-	if storedOptions.StrictSecurity != currentOptions.StrictSecurity {
-		changed = append(changed, "STRICT_SECURITY")
-	}
-
-	return changed
 }
 
 func devContainerConfigDiffers(

@@ -4,61 +4,59 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/loft-sh/devpod/pkg/config"
 	devcontainerconfig "github.com/loft-sh/devpod/pkg/devcontainer/config"
 	"github.com/loft-sh/devpod/pkg/devcontainer/metadata"
 	"github.com/loft-sh/devpod/pkg/driver"
-	provider2 "github.com/loft-sh/devpod/pkg/provider"
 	"github.com/loft-sh/devpod/pkg/types"
-	workspace2 "github.com/loft-sh/devpod/pkg/workspace"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestChangedProviderOptions(t *testing.T) {
-	providerWithOptions := &workspace2.ProviderWithOptions{
-		Config: &provider2.ProviderConfig{
-			Name: "kubernetes",
-			Options: map[string]*types.Option{
-				"CREATE_NAMESPACE": {Default: "true"},
-				"DISK_SIZE":        {Default: "10Gi"},
-				"RESOURCES":        {},
-			},
-		},
-	}
-	devPodConfig := &config.Config{
-		DefaultContext: "default",
-		Contexts: map[string]*config.ContextConfig{
-			"default": {},
-		},
-	}
+func TestProviderOptionsFromPod(t *testing.T) {
 	stored := &kubernetesProviderOptions{
-		DevContainerID:  "workspace-uid",
-		CreateNamespace: "true",
-		DiskSize:        "10Gi",
+		DevContainerID:      "workspace-uid",
+		CreateNamespace:     "true",
+		DiskSize:            "10Gi",
+		Resources:           "limits.memory=8Gi,requests.memory=8Gi",
+		PodManifestTemplate: `{"kind":"Pod"}`,
+		PvcAnnotations:      "foo=bar",
+		StrictSecurity:      true,
 	}
 	raw, err := json.Marshal(stored)
 	if err != nil {
 		t.Fatal(err)
 	}
 	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{
+		Namespace:   "pod-namespace",
 		Annotations: map[string]string{devPodLastAppliedAnnotation: string(raw)},
 	}}
 
-	if changes := changedProviderOptions(pod, providerWithOptions, devPodConfig, "workspace-uid"); len(changes) != 0 {
-		t.Fatalf("expected no changes, got %v", changes)
+	options := providerOptionsFromPod(pod, "", types.Now())
+	expected := map[string]string{
+		"CREATE_NAMESPACE":      "true",
+		"DISK_SIZE":             "10Gi",
+		"RESOURCES":             "limits.memory=8Gi,requests.memory=8Gi",
+		"POD_MANIFEST_TEMPLATE": `{"kind":"Pod"}`,
+		"PVC_ANNOTATIONS":       "foo=bar",
+		"STRICT_SECURITY":       "true",
+		"KUBERNETES_NAMESPACE":  "pod-namespace",
+	}
+	for name, value := range expected {
+		option, ok := options[name]
+		if !ok {
+			t.Fatalf("expected option %s to be copied", name)
+		}
+		if option.Value != value {
+			t.Fatalf("expected option %s to be %q, got %q", name, value, option.Value)
+		}
+		if !option.UserProvided {
+			t.Fatalf("expected option %s to be user provided", name)
+		}
 	}
 
-	stored.Resources = "limits.memory=8Gi"
-	raw, err = json.Marshal(stored)
-	if err != nil {
-		t.Fatal(err)
-	}
-	pod.Annotations[devPodLastAppliedAnnotation] = string(raw)
-
-	changes := changedProviderOptions(pod, providerWithOptions, devPodConfig, "workspace-uid")
-	if len(changes) != 1 || changes[0] != "RESOURCES" {
-		t.Fatalf("expected RESOURCES change, got %v", changes)
+	options = providerOptionsFromPod(pod, "explicit-namespace", types.Now())
+	if options["KUBERNETES_NAMESPACE"].Value != "explicit-namespace" {
+		t.Fatalf("expected explicit namespace override, got %q", options["KUBERNETES_NAMESPACE"].Value)
 	}
 }
 
